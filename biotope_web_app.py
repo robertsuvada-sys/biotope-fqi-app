@@ -3,7 +3,7 @@ import re
 import pandas as pd
 from collections import defaultdict
 
-# NÁZOV VÁŠHO PÔVODNÉHO KARTALÓGVOÉHO SÚBORU
+# NÁZOV PÔVODNÉHO KARTALÓGVOÉHO SÚBORU
 CATALOG_FILENAME = "ES Katalog biotopov Suvada ed 2023 v1.05.txt"
 
 # --- CORE FACTORY AND DATA FUNCTIONS (Pre-cached) ---
@@ -139,7 +139,7 @@ def get_all_known_species(synonym_map, similarity_matrix):
     all_known = canonical_species.union(set(synonym_map.keys())).union(set(synonym_map.values()))
     return sorted(list(all_known))
 
-# --- ANALYTICKÁ FUNKCIA S NOVÝM FQI VÝPOČTOM ---
+# --- ANALYTICKÁ FUNKCIA S FQI VÝPOČTOM ---
 
 @st.cache_data(show_spinner="Prebieha výpočet Frekvenčného Indexu (FQI)...")
 def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix, total_frequency_per_group):
@@ -287,7 +287,7 @@ def biotope_web_app():
         # Režim 1: VÝBER DRUHOV
 
         st.header("1. Výber Druhov")
-        st.warning("Výpočet FQI sa spustí až po stlačení tlačidla 'Všetky druhy zadané, vypočítaj' pod zoznamom. To zaručuje plynulý výber.")
+        st.warning("Výpočet FQI sa spustí až po stlačení tlačidla 'Všetky druhy zadané, vypočítaj' pod zoznamom.")
         
         current_species_list = st.multiselect(
             "Vyberte druh zo zoznamu (začnite písať pre filtrovanie):",
@@ -343,7 +343,7 @@ def biotope_web_app():
         df_results = pd.DataFrame(top_matches_data).set_index('Poradie')
         st.dataframe(df_results, use_container_width=True)
 
-        st.caption("FQI (Frekvenčný Index) je **Percento (v %)**, ktoré vyjadruje podiel súčtu frekvencií vybraných druhov na celkovej možnej frekvencii všetkých kanonických druhov v danej skupine. Vyššie percento = Vyššia zhoda.")
+        st.caption("FQI (Frekvenčný Index) je **%**, ktoré vyjadruje podiel súčtu frekvencií vybraných druhov na celkovej možnej frekvencii všetkých kanonických druhov v danej skupine. Vyššie percento = Vyššia zhoda.")
 
         st.markdown("---")
         
@@ -356,7 +356,7 @@ def biotope_web_app():
             st.markdown("##### Spracované druhy (kanonické)")
             st.write(f"**Počet spracovaných kanonických druhov:** {len(processed_species)}")
             
-            with st.expander("Zobraziť použité kanonické názvy"):
+            with st.expander("Zobraziť použité kanonické mená"):
                 st.code("\n".join(processed_species))
 
         with col2:
@@ -365,7 +365,7 @@ def biotope_web_app():
             st.markdown(f"##### Konverzie Synonym (zadaný → kanonický)")
             
             if conversions:
-                df_conversions = pd.DataFrame(list(conversions.items()), columns=['Zadaný názov', 'Kanonický názov'])
+                df_conversions = pd.DataFrame(list(conversions.items()), columns=['Zadané meno', 'Kanonické meno'])
                 st.dataframe(df_conversions, use_container_width=True, hide_index=True)
             else:
                 st.success("Neboli zadané žiadne synonymá.")
@@ -375,11 +375,11 @@ def biotope_web_app():
             
             if ignored_inputs:
                 st.warning(f"**Ignorovaných vstupov: {len(ignored_inputs)}**")
-                st.caption("Tieto druhy sa mapujú na kanonický názov, ktorý už bol v rámci výpočtu zahrnutý. Boli preskočené, aby sa predišlo duplicitnému započítaniu.")
+                st.caption("Tieto druhy majú kanonické meno, ktoré už bolo v rámci výpočtu zahrnuté. Boli preskočené, aby sa predišlo duplicitnému započítaniu.")
                 with st.expander("Zobraziť ignorované vstupy"):
                     st.code("\n".join(ignored_inputs))
             else:
-                st.success("Neboli zadané žiadne duplikáty (synonymá ani kanonické názvy) k rovnakému kanonickému druhu.")
+                st.success("Neboli zadané žiadne duplikáty (synonymá ani kanonické mená) k rovnakému kanonickému druhu.")
 
     # NOVÁ SEKCIA: Copyright Footer
     st.markdown("---")
