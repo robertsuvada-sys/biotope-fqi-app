@@ -2,9 +2,6 @@ import streamlit as st
 import re
 import pandas as pd
 from collections import defaultdict
-from datetime import date 
-import io 
-from urllib.parse import quote 
 
 # NÁZOV PÔVODNÉHO KARTALÓGVOÉHO SÚBORU
 CATALOG_FILENAME = "ES Katalog biotopov Suvada ed 2023 v1.05.txt"
@@ -229,100 +226,6 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
 
     return top_matches_data, processed_canonical_species, name_conversion_map, ignored_inputs
 
-# --- EXPORTNÁ FUNKCIA PRE TXT ---
-
-def generate_export_data(fqi_results_df, canonical_species_list, manual_data):
-    """
-    Generuje ucelený textový reťazec pre export obsahujúci hlavičku, FQI výsledky a zoznam druhov.
-    """
-    
-    # Dolné indexy pre etáže
-    E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
-    
-    # Prevod DataFrame na textovú tabuľku (CSV s tabulátorom pre čitateľnosť)
-    fqi_table = fqi_results_df.reset_index(drop=True).to_csv(sep='\t', index=False)
-    
-    output = "--- EXPORT VÝSLEDKOV ANALÝZY BIOTOPU ---\n\n"
-    
-    # 1. HLAVIČKA PRE MANUÁLNY ZÁPIS
-    output += "SEKCIA 1: ÚDAJE Z TERÉNU (VYPLNENÉ V APLIKÁCII)\n"
-    output += "--------------------------------------------------\n"
-    output += f"Lokalita:              {manual_data['lokalita']}\n"
-    output += f"Súradnice:             {manual_data['suradnica']}\n"
-    output += f"Meno mapovateľa:       {manual_data['mapovatel']}\n"
-    output += f"Dátum:                 {manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']}\n"
-    output += f"Pokryvnosť etáží (E{E3}: stromové, E{E2}: krovité, E{E1}: bylinné, E{E0}: machové/lišajníkové):\n"
-    output += f"  E{E3}:                  {manual_data['pokryvnost_E3']}\n"
-    output += f"  E{E2}:                  {manual_data['pokryvnost_E2']}\n"
-    output += f"  E{E1}:                  {manual_data['pokryvnost_E1']}\n"
-    output += f"  E{E0}:                  {manual_data['pokryvnost_E0']}\n\n"
-    
-    # 2. VÝSLEDKY FQI ANALÝZY
-    output += "SEKCIA 2: VÝSLEDKY FQI ANALÝZY (TOP 3)\n"
-    output += "--------------------------------------------------\n"
-    output += fqi_table
-    output += "\n"
-
-    # 3. KANONICKÉ DRUHY
-    output += "SEKCIA 3: POUŽITÉ KANONICKÉ DRUHY\n"
-    output += "--------------------------------------------------\n"
-    output += "Počet kanonických druhov: " + str(len(canonical_species_list)) + "\n"
-    output += "\n".join(sorted(canonical_species_list))
-    output += "\n\n--- KONIEC EXPORTU ---\n"
-    
-    return output
-
-# --- EXPORTNÁ FUNKCIA PRE XLSX ---
-
-def generate_excel_data(fqi_results_df, canonical_species_list, manual_data):
-    """Generuje Excel súbor (.xlsx) s tromi listami dát."""
-    
-    # Dolné indexy pre etáže
-    E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
-    
-    # 1. PRIPRAVA DAT PRE HLAVICKU (ako DataFrame)
-    header_data = [
-        ("--- ZÁKLADNÉ ÚDAJE ---", ""),
-        ("Lokalita", manual_data['lokalita']),
-        ("Súradnice", manual_data['suradnica']),
-        ("Meno mapovateľa", manual_data['mapovatel']),
-        ("Dátum", manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']),
-        ("--- POKRYVNOSŤ ETÁŽÍ ---", ""),
-        (f"E{E3} (Stromové poschodie)", manual_data['pokryvnost_E3']),
-        (f"E{E2} (Krovité poschodie)", manual_data['pokryvnost_E2']),
-        (f"E{E1} (Bylinné poschodie)", manual_data['pokryvnost_E1']),
-        (f"E{E0} (Machové/Liš. poschodie)", manual_data['pokryvnost_E0']),
-    ]
-    df_header = pd.DataFrame(header_data, columns=['Popis', 'Hodnota'])
-    
-    # 2. PRIPRAVA DAT PRE DRUHY
-    df_species = pd.DataFrame(sorted(canonical_species_list), columns=['Kanonické druhy (použité v analýze)'])
-
-    # 3. ZAPIS DO BYTESIO BUFFERU
-    output = io.BytesIO()
-    
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        
-        # A. Manuálne údaje (Hlavička)
-        df_header.to_excel(writer, sheet_name='Data z terénu', index=False, startrow=0, startcol=0)
-
-        # B. FQI Výsledky (už je DataFrame)
-        df_fqi_excel = fqi_results_df.copy()
-        df_fqi_excel.to_excel(writer, sheet_name='FQI Výsledky', index=False, startrow=0, startcol=0)
-
-        # C. Kanonické druhy
-        df_species.to_excel(writer, sheet_name='Kanonické druhy', index=False, startrow=0, startcol=0)
-
-        # Optimalizácia šírky stĺpcov pre lepšiu čitateľnosť
-        for sheetname in writer.sheets:
-            worksheet = writer.sheets[sheetname]
-            # Nastaví šírku pre prvé 2 stĺpce
-            worksheet.set_column('A:D', 30)
-            
-    # Resetovanie pozície bufferu a vrátenie obsahu
-    output.seek(0)
-    return output.read()
-
 # --- AKCIE PRE TLAČIDLÁ (Callbacks) ---
 
 def calculate_fqi_action():
@@ -344,7 +247,7 @@ def biotope_web_app():
     st.title("🌿 Identifikátor Biotopov (FQI) na základe Expertného Systému")
     st.caption(f"Dáta načítané zo súboru: **{CATALOG_FILENAME}**")
 
-    # Citácia
+    # NOVÁ SEKCIA: Citácia
     st.markdown("""
         **Podľa publikácie:**
         Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie. –
@@ -437,16 +340,15 @@ def biotope_web_app():
         # 3.1. TOP 3 ZHODY
         st.subheader("Biotopy s najvyššou podobnosťou (FQI)")
         
-        df_results = pd.DataFrame(top_matches_data)
-        df_results_display = df_results.set_index('Poradie')
-        st.dataframe(df_results_display, use_container_width=True)
+        df_results = pd.DataFrame(top_matches_data).set_index('Poradie')
+        st.dataframe(df_results, use_container_width=True)
 
         st.caption("FQI (Frekvenčný Index) je **%**, ktoré vyjadruje podiel súčtu frekvencií vybraných druhov na celkovej možnej frekvencii všetkých kanonických druhov v danej skupine. Vyššie percento = Vyššia zhoda.")
 
         st.markdown("---")
         
-        # --- NOVÁ SEKCIA 3: DETAIY SPRACOVANIA (Pôvodne 5) ---
-        st.subheader("3. Detaily Spracovania")
+        # 3.2. Detail konverzií a spracovaných druhov
+        st.subheader("Detaily Spracovania")
 
         col1, col2, col3 = st.columns(3) 
 
@@ -479,101 +381,7 @@ def biotope_web_app():
             else:
                 st.success("Neboli zadané žiadne duplikáty (synonymá ani kanonické mená) k rovnakému kanonickému druhu.")
 
-        st.markdown("---") 
-
-        # --- NOVÁ SEKCIA 4: ÚDAJE Z TERÉNU A EXPORT (Pôvodne 3.2) ---
-        st.subheader("4. Údaje z terénu a Export")
-        
-        # Použitie dolných indexov
-        E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
-        
-        # Uchovanie dát zadaných do formuláru pre export
-        lokalita, suradnica, mapovatel, datum = "", "", "", date.today()
-        pokryvnost_E3, pokryvnost_E2, pokryvnost_E1, pokryvnost_E0 = "0", "0", "0", "0"
-
-        with st.form("field_data_form"):
-            
-            # ZMENA: Nastavenie pomeru stĺpcov na 3:1 (pre zúženie col_b)
-            col_a, col_b = st.columns([3, 1]) 
-            
-            # --- ZADÁVANIE ÚDAJOV Z TERÉNU (Širší stĺpec) ---
-            with col_a:
-                # NOVÝ NADPIS (TERAZ VNÚTRI STĹPCA)
-                st.markdown("##### Informácie o terénnom zázname")
-                
-                lokalita = st.text_input("Lokalita", key='export_lokalita')
-                suradnica = st.text_input("Súradnice", key='export_suradnica')
-                mapovatel = st.text_input("Meno mapovateľa", key='export_mapovatel')
-                datum = st.date_input("Dátum zápisu", value=date.today(), key='export_datum')
-
-            # --- POKRYVNOSŤ ETÁŽÍ (Užší stĺpec 1:3) ---
-            with col_b:
-                # Titulok stĺpca je teraz zarovno s titulkom v col_a
-                st.markdown(f"##### Pokryvnosť etáží (E{E3}-E{E0})")
-                
-                # Zjednodušená nápoveda
-                help_text_etaze = "Pokryvnosť v %"
-                # Pôvodné dlhšie labely - polia sa zúžia vďaka úzkemu stĺpcu
-                pokryvnost_E3 = st.text_input(f"E{E3} (Stromové poschodie)", value="", key='export_E3', help=help_text_etaze)
-                pokryvnost_E2 = st.text_input(f"E{E2} (Krovité poschodie)", value="", key='export_E2', help=help_text_etaze)
-                pokryvnost_E1 = st.text_input(f"E{E1} (Bylinné poschodie)", value="", key='export_E1', help=help_text_etaze)
-                pokryvnost_E0 = st.text_input(f"E{E0} (Machové/Liš. poschodie)", value="", key='export_E0', help=help_text_etaze)
-                
-            st.form_submit_button("Uložiť údaje (pred exportom)", type="primary")
-
-        # Zostavenie manuálnych dát pre export
-        manual_data = {
-            'lokalita': lokalita,
-            'suradnica': suradnica,
-            'mapovatel': mapovatel,
-            'datum': datum,
-            'pokryvnost_E3': pokryvnost_E3,
-            'pokryvnost_E2': pokryvnost_E2,
-            'pokryvnost_E1': pokryvnost_E1,
-            'pokryvnost_E0': pokryvnost_E0,
-        }
-
-        # Generovanie obsahu pre TXT export
-        export_data_str = generate_export_data(
-            df_results, 
-            list(processed_species), 
-            manual_data
-        )
-        
-        # Generovanie obsahu pre XLSX export
-        excel_data_bytes = generate_excel_data(
-            df_results, 
-            list(processed_species), 
-            manual_data
-        )
-        
-        # Tlačidlá pre stiahnutie v stĺpcoch (vyrovnané na jednom riadku)
-        file_name_prefix = lokalita[:10].replace(' ', '_').strip() if lokalita else "novy_zapis"
-        
-        col_xlsx, col_txt = st.columns(2)
-        
-        with col_xlsx: 
-            st.download_button(
-                label="⬇️ Export výsledkov (Excel XLSX)",
-                data=excel_data_bytes,
-                file_name=f"biotop_analyza_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True
-            )
-
-        with col_txt: 
-            st.download_button(
-                label="⬇️ Export výsledkov (TXT formát)",
-                data=export_data_str,
-                file_name=f"biotop_analyza_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.txt",
-                mime="text/plain",
-                use_container_width=True
-            )
-            
-        st.markdown("---") 
-            
-
-    # Copyright Footer
+    # NOVÁ SEKCIA: Copyright Footer
     st.markdown("---")
     st.markdown("<footer><p style='text-align: right; color: gray; font-size: small;'>© Róbert Šuvada 2025</p></footer>", unsafe_allow_html=True)
 
