@@ -191,8 +191,8 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
     
     cumulative_scores = defaultdict(int)
     valid_groups = set(group_names.keys())
-    # OPRAVA: Premenná iniciovaná ako 'processed_species'
-    processed_species = set() 
+    # OPRAVA: Premenná iniciovaná ako 'processed_canonical_species'
+    processed_canonical_species = set() 
     name_conversion_map = {} 
     ignored_inputs = [] 
     
@@ -205,8 +205,8 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
             
             name_conversion_map[user_species] = canonical_name
 
-            if canonical_name not in processed_species:
-                processed_species.add(canonical_name)
+            if canonical_name not in processed_canonical_species:
+                processed_canonical_species.add(canonical_name)
                 
                 species_data = similarity_matrix[canonical_name]
                 for group_id, count in species_data.items():
@@ -218,8 +218,8 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
                 
 
     if not cumulative_scores:
-        # Používame processed_species
-        return None, processed_species, name_conversion_map, ignored_inputs 
+        # Používame processed_canonical_species
+        return None, processed_canonical_species, name_conversion_map, ignored_inputs 
 
     # 2. VÝPOČET FQI (Percentuálna normalizácia)
     fqi_scores = {}
@@ -266,7 +266,7 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
             'FQI (% Zhody)': f"{score:.2f} %", 
         })
 
-    return top_matches_data, processed_species, name_conversion_map, ignored_inputs
+    return top_matches_data, processed_canonical_species, name_conversion_map, ignored_inputs
 
 # --- EXPORTNÁ FUNKCIA PRE TXT ---
 
@@ -512,7 +512,7 @@ def biotope_web_app():
         # NOVÁ FUNKCIONALITA: HROMADNÝ UPLOAD
         st.subheader("1.1. Hromadné zadanie (TXT súbor)")
         # *** ZMENENÝ TEXT PODĽA POŽIADAVKY ***
-        st.info("Nahrajte textový súbor, ktorý bude mať na každom riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
+        st.info("Nahrajte textový súbor, ktorý bude mať na riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
         # ***********************************
         
         uploaded_file = st.file_uploader(
@@ -546,6 +546,8 @@ def biotope_web_app():
         current_species_list = st.multiselect(
             "Vyberte druh zo zoznamu (začnite písať pre filtrovanie), alebo ním **korigujte neznáme druhy** zo súboru:",
             options=all_species,
+            # FIX: Explicitne načítame predchádzajúci stav z multiselectu
+            default=st.session_state.get('selected_species_multiselect', []), 
             key="selected_species_multiselect" 
         )
         
@@ -585,6 +587,7 @@ def biotope_web_app():
 
         # KONTROLA PRE PODMIENENÉ ZOBRAZENIE
         # Zobrazíme detaily, len ak bol vykonaný HROMADNÝ IMPORT (1.1).
+        # Toto bola úprava z predchádzajúceho kola, ktorá zostáva
         show_processing_details = (
             len(uploaded_known_species) > 0 or
             len(uploaded_unknown_species) > 0
