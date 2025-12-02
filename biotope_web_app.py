@@ -442,13 +442,16 @@ def handle_upload():
 
 
 def reset_selection_action():
-    """Prepne režim späť na výber. Čistí len hromadný upload, ručný výber ponecháva."""
+    """Prepne režim späť na výber. Čistí len hromadný upload, ručný výber ponecháva a obnovuje."""
     st.session_state['app_mode'] = 'selection'
-    # Vyčistenie stavu pre hromadný upload (stále chceme vyčistiť nahratý súbor)
+    # Vyčistenie stavu pre hromadný upload
     st.session_state['uploaded_known_species'] = []
     st.session_state['uploaded_unknown_species'] = []
-    # Ponechávame st.session_state['selected_species_multiselect'] a 
-    # st.session_state['manual_selections_for_display'] pre možnosť editácie.
+    
+    # NOVÝ FIX: Explicitne obnovíme stav multiselectu z posledného uloženého manuálneho výberu.
+    # Tým sa zabezpečí, že multiselect sa pri opätovnom vykreslení neobnoví na prázdny zoznam.
+    if 'manual_selections_for_display' in st.session_state:
+        st.session_state['selected_species_multiselect'] = st.session_state['manual_selections_for_display']
 
 
 # --- HLAVNÁ WEB APLIKÁCIA ---
@@ -546,7 +549,7 @@ def biotope_web_app():
         current_species_list = st.multiselect(
             "Vyberte druh zo zoznamu (začnite písať pre filtrovanie), alebo ním **korigujte neznáme druhy** zo súboru:",
             options=all_species,
-            # FIX: Explicitne načítame predchádzajúci stav z multiselectu
+            # FIX: Explicitne načítame predchádzajúci stav z multiselectu (pre istotu)
             default=st.session_state.get('selected_species_multiselect', []), 
             key="selected_species_multiselect" 
         )
