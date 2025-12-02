@@ -512,7 +512,7 @@ def biotope_web_app():
         # NOVÁ FUNKCIONALITA: HROMADNÝ UPLOAD
         st.subheader("1.1. Hromadné zadanie (TXT súbor)")
         # *** ZMENENÝ TEXT PODĽA POŽIADAVKY ***
-        st.info("Nahrajte textový súbor, ktorý bude mať na riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
+        st.info("Nahrajte textový súbor, ktorý bude mať na každom riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
         # ***********************************
         
         uploaded_file = st.file_uploader(
