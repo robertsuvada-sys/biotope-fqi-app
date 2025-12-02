@@ -515,7 +515,7 @@ def biotope_web_app():
         # NOVÁ FUNKCIONALITA: HROMADNÝ UPLOAD
         st.subheader("1.1. Hromadné zadanie (TXT súbor)")
         # *** ZMENENÝ TEXT PODĽA POŽIADAVKY ***
-        st.info("Nahrajte textový súbor, ktorý bude mať na riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
+        st.info("Nahrajte textový súbor, ktorý bude mať na každom riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
         # ***********************************
         
         uploaded_file = st.file_uploader(
@@ -666,14 +666,13 @@ def biotope_web_app():
                     if remaining_unknown_species or len(uploaded_unknown_species) > 0:
                         st.markdown("") # Malý vertikálny priestor
                         
-                    st.success(f"**{len(manual_selections_for_analysis)}** druhov bolo **manuálne pridaných/korigovaných** v kroku 1.2 a boli zahrnuté do analýzy:")
+                    st.success(f"**{len(manual_selections_for_analysis)}** druhov bolo **manuálne pridaných alebo korigovaných** v kroku 1.2 a boli zahrnuté do analýzy:")
                     st.code("\n".join(manual_selections_for_analysis))
                 else:
                     # Zmenené z info na text, aby to vizuálne nezaťažovalo
                     if not remaining_unknown_species and not uploaded_known_species:
                         st.info("Do analýzy neboli pridané žiadne druhy ručným výberom.")
                 
-        st.markdown("---")
 
         # Pôvodné detaily spracovania
         with col1:
