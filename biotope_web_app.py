@@ -442,14 +442,13 @@ def handle_upload():
 
 
 def reset_selection_action():
-    """Prepne režim späť na výber a vyčistí stav nahraného súboru."""
+    """Prepne režim späť na výber. Čistí len hromadný upload, ručný výber ponecháva."""
     st.session_state['app_mode'] = 'selection'
-    # Vyčistenie stavu pre hromadný upload a ručný výber
+    # Vyčistenie stavu pre hromadný upload (stále chceme vyčistiť nahratý súbor)
     st.session_state['uploaded_known_species'] = []
     st.session_state['uploaded_unknown_species'] = []
-    st.session_state['selected_species_multiselect'] = []
-    # Vyčistíme aj perzistentný kľúč
-    st.session_state['manual_selections_for_display'] = []
+    # Ponechávame st.session_state['selected_species_multiselect'] a 
+    # st.session_state['manual_selections_for_display'] pre možnosť editácie.
 
 
 # --- HLAVNÁ WEB APLIKÁCIA ---
@@ -543,7 +542,7 @@ def biotope_web_app():
         # NOVÁ/UPRAVENÁ FUNKCIONALITA: Ručný výber alebo úprava
         st.subheader("1.2. Manuálny výber (doplnenie / úprava / korekcia)")
 
-        # OPRAVA: Odstránenie explicitného "default" na elimináciu Streamlit varovania
+        # Používa uloženú hodnotu z session state, ktorá sa už nevymazáva v reset_selection_action
         current_species_list = st.multiselect(
             "Vyberte druh zo zoznamu (začnite písať pre filtrovanie), alebo ním **korigujte neznáme druhy** zo súboru:",
             options=all_species,
@@ -585,11 +584,10 @@ def biotope_web_app():
         manual_selections_for_analysis = manual_selected_for_display
 
         # KONTROLA PRE PODMIENENÉ ZOBRAZENIE
-        # Zobrazíme detaily, len ak bol vykonaný HROMADNÝ IMPORT
+        # Zobrazíme detaily, len ak bol vykonaný HROMADNÝ IMPORT (1.1).
         show_processing_details = (
             len(uploaded_known_species) > 0 or
-            len(uploaded_unknown_species) > 0 or
-            len(manual_selections_for_analysis) > 0 # Zobraziť aj ak bol iba manuálny výber
+            len(uploaded_unknown_species) > 0
         )
         
         # ----------------------------------------------------
@@ -637,9 +635,9 @@ def biotope_web_app():
 
         col1, col2, col3 = st.columns(3) 
         
-        # PODMIENENÉ ZOBRAZENIE
+        # PODMIENENÉ ZOBRAZENIE (Teraz ZBALENÉ A ZOBRAZUJE SA LEN PO HROMADNOM IMPORTE)
         if show_processing_details:
-            with st.expander("Kontrola spracovania druhov zo súboru a manuálnych korekcií", expanded=True):
+            with st.expander("Kontrola spracovania druhov zo súboru a manuálnych korekcií", expanded=False):
                 
                 # 1. Čo zostalo nezaradené (Pôvodné neznáme) - TERAZ AKO PRVÉ
                 if remaining_unknown_species:
@@ -669,6 +667,7 @@ def biotope_web_app():
                     if not remaining_unknown_species and not uploaded_known_species:
                         st.info("Do analýzy neboli pridané žiadne druhy ručným výberom.")
                 
+        st.markdown("---")
 
         # Pôvodné detaily spracovania
         with col1:
