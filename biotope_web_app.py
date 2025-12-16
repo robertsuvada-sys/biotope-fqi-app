@@ -4,20 +4,370 @@ import pandas as pd
 from collections import defaultdict
 from datetime import date 
 import io 
-from urllib.parse import quote 
 
-# NÁZOV PÔVODNÉHO KARTALÓGVOÉHO SÚBORU
+# NÁZOV PÔVODNÉHO KATALÓGOVÉHO SÚBORU
 CATALOG_FILENAME = "ES Katalog biotopov Suvada ed 2023 v1.05.txt"
 
-# --- CORE FACTORY AND DATA FUNCTIONS (Pre-cached) ---
+# ODKAZY NA VLAJKY (FlagCDN - verejný zdroj)
+FLAG_URL_SK = "https://flagcdn.com/w40/sk.png"
+FLAG_URL_GB = "https://flagcdn.com/w40/gb.png"
+
+# --- TRANSLATION DICTIONARY ---
+
+TRANSLATIONS = {
+    # UI General
+    "app_title": {
+        "SK": "🌿 Identifikátor Biotopov (FQI) na základe Expertného Systému",
+        "EN": "🌿 Habitat Identifier (FQI) based on Expert System"
+    },
+    "data_loaded_from": {
+        "SK": "Dáta načítané zo súboru: **{}**",
+        "EN": "Data loaded from file: **{}**"
+    },
+    "citation_header": {
+        "SK": "**Podľa publikácie:**",
+        "EN": "**Based on publication:**"
+    },
+    "citation_text": {
+        "SK": "Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie. – Štátna ochrana prírody SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4",
+        "EN": "Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia. Second, extended edition. – State Nature Conservancy of SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4"
+    },
+    "stats_header": {
+        "SK": "Štatistiky Dát",
+        "EN": "Data Statistics"
+    },
+    "stats_biotopes": {
+        "SK": "Biotopov (skupín): **{}**",
+        "EN": "Habitats (groups): **{}**"
+    },
+    "stats_matrix": {
+        "SK": "Spracovaných druhov v matici: **{}**",
+        "EN": "Species processed in matrix: **{}**"
+    },
+    "stats_total": {
+        "SK": "Celkový počet názvov/synoným na výber: **{}**",
+        "EN": "Total names/synonyms for selection: **{}**"
+    },
+    # Section 1: Input
+    "sec1_title": {
+        "SK": "1. Zadanie Druhov",
+        "EN": "1. Species Input"
+    },
+    "sec1_1_subtitle": {
+        "SK": "1.1. Hromadné zadanie (TXT súbor)",
+        "EN": "1.1. Bulk Input (TXT file)"
+    },
+    "upload_info": {
+        "SK": "Nahrajte textový súbor, ktorý bude mať na každom riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.",
+        "EN": "Upload a text file with one species name per line (without cover information). The app will automatically process known species and identify unknown ones."
+    },
+    "upload_label": {
+        "SK": "Vyberte TXT súbor so zoznamom druhov",
+        "EN": "Select TXT file with species list"
+    },
+    "upload_success": {
+        "SK": "Načítaných známych druhov zo súboru: **{}**",
+        "EN": "Known species loaded from file: **{}**"
+    },
+    "upload_warning": {
+        "SK": "Neznáme druhy v súbore (na manuálnu korekciu): **{}**",
+        "EN": "Unknown species in file (for manual correction): **{}**"
+    },
+    "upload_caption": {
+        "SK": "Tieto druhy nebudú zahrnuté do analýzy, kým ich nepriradíte k známemu druhu pomocou ručného výberu (možnosť 1.2).",
+        "EN": "These species will not be included in the analysis until you assign them to a known species using manual selection (option 1.2)."
+    },
+    "expander_unknown": {
+        "SK": "Zobraziť neznáme druhy",
+        "EN": "Show unknown species"
+    },
+    "sec1_2_subtitle": {
+        "SK": "1.2. Manuálny výber (doplnenie / úprava / korekcia)",
+        "EN": "1.2. Manual Selection (Addition / Edit / Correction)"
+    },
+    "multiselect_label": {
+        "SK": "Vyberte druh zo zoznamu (začnite písať pre filtrovanie), alebo ním **korigujte neznáme druhy** zo súboru:",
+        "EN": "Select a species from the list (start typing to filter), or use it to **correct unknown species** from the file:"
+    },
+    "total_analysis_info": {
+        "SK": "Celkový počet druhov pre FQI analýzu (známe zo súboru + ručne vybrané): **{}**",
+        "EN": "Total species for FQI analysis (known from file + manually selected): **{}**"
+    },
+    "btn_calculate": {
+        "SK": "🟢 Všetky druhy zadané, vypočítaj FQI",
+        "EN": "🟢 All species entered, Calculate FQI"
+    },
+    "btn_calculate_disabled": {
+        "SK": "Všetky druhy zadané, vypočítaj FQI",
+        "EN": "All species entered, Calculate FQI"
+    },
+    "toast_loaded": {
+        "SK": "Načítaných druhov: {}. Známych: {}, Neznámych: {}.",
+        "EN": "Species loaded: {}. Known: {}, Unknown: {}."
+    },
+    "toast_removed": {
+        "SK": "Nahratý súbor bol odstránený. Zoznam druhov z neho bol vyčistený.",
+        "EN": "Uploaded file removed. Species list cleared."
+    },
+    # Section 2: Results
+    "err_no_species": {
+        "SK": "Chyba: Neboli nájdené žiadne druhy na analýzu. Prepnite späť na výber.",
+        "EN": "Error: No species found for analysis. Switch back to selection."
+    },
+    "btn_back": {
+        "SK": "⬅️ Zmeň druhovú skupinu",
+        "EN": "⬅️ Change Species Group"
+    },
+    "sec2_title": {
+        "SK": "2. Výsledky Analýzy FQI",
+        "EN": "2. FQI Analysis Results"
+    },
+    "analysis_running": {
+        "SK": "Analýza beží pre **{}** vybraných druhov.",
+        "EN": "Analysis running for **{}** selected species."
+    },
+    "err_no_matrix_match": {
+        "SK": "Nenašiel sa žiaden zadaný druh v matici podobnosti. Výpočet FQI nie je možný.",
+        "EN": "No entered species found in the similarity matrix. FQI calculation not possible."
+    },
+    "top3_title": {
+        "SK": "Biotopy s najvyššou podobnosťou (FQI)",
+        "EN": "Habitats with highest similarity (FQI)"
+    },
+    "fqi_caption": {
+        "SK": "FQI (Frekvenčný Index) je **%**, ktoré vyjadruje podiel súčtu frekvencií vybraných druhov na celkovej možnej frekvencii všetkých kanonických druhov v danej skupine. Vyššie percento = Vyššia zhoda.",
+        "EN": "FQI (Frequency Index) is a **%** representing the share of the cumulative frequency of selected species to the total possible frequency of all canonical species in the group. Higher percentage = Higher match."
+    },
+    # Columns for Results Table
+    "col_rank": {
+        "SK": "Poradie",
+        "EN": "Rank"
+    },
+    "col_code": {
+        "SK": "KÓD Biotopu",
+        "EN": "Habitat CODE"
+    },
+    "col_name": {
+        "SK": "Názov Biotopu",
+        "EN": "Habitat Name"
+    },
+    "col_fqi": {
+        "SK": "FQI (% Zhody)",
+        "EN": "FQI (% Match)"
+    },
+    # Section 3: Details
+    "sec3_title": {
+        "SK": "3. Detaily Spracovania",
+        "EN": "3. Processing Details"
+    },
+    "expander_check": {
+        "SK": "Kontrola spracovania druhov zo súboru a manuálnych korekcií",
+        "EN": "Review of file processing and manual corrections"
+    },
+    "warn_not_included": {
+        "SK": "**{}** druhov nebolo v analýze zahrnutých. Mená druhov z importovaného súboru, ktoré nebolo možné automaticky priradiť ku kanonickým druhom.",
+        "EN": "**{}** species were not included in the analysis. Species names from the imported file that could not be automatically assigned to canonical species."
+    },
+    "success_unknown_fixed": {
+        "SK": "Všetky pôvodne neznáme druhy boli manuálne opravené/priradené.",
+        "EN": "All originally unknown species were manually corrected/assigned."
+    },
+    "success_no_unknown": {
+        "SK": "V nahratom súbore neboli žiadne neznáme druhy.",
+        "EN": "There were no unknown species in the uploaded file."
+    },
+    "success_manual_added": {
+        "SK": "**{}** druhov bolo **manuálne pridaných alebo korigovaných** v kroku 1.2 a boli zahrnuté do analýzy:",
+        "EN": "**{}** species were **manually added or corrected** in step 1.2 and included in the analysis:"
+    },
+    "info_no_manual": {
+        "SK": "Do analýzy neboli pridané žiadne druhy ručným výberom.",
+        "EN": "No species were added manually to the analysis."
+    },
+    "processed_canon": {
+        "SK": "##### Spracované druhy (kanonické)",
+        "EN": "##### Processed Species (Canonical)"
+    },
+    "processed_count": {
+        "SK": "**Počet spracovaných kanonických druhov:** {}",
+        "EN": "**Number of processed canonical species:** {}"
+    },
+    "expander_canon": {
+        "SK": "Zobraziť použité kanonické mená",
+        "EN": "Show used canonical names"
+    },
+    "synonym_conversions": {
+        "SK": "##### Konverzie Synonym (zadaný → kanonický)",
+        "EN": "##### Synonym Conversions (Input → Canonical)"
+    },
+    "no_synonyms": {
+        "SK": "Neboli zadané žiadne synonymá, alebo bol zadaný už kanonický názov.",
+        "EN": "No synonyms entered, or the canonical name was already provided."
+    },
+    "ignored_dups": {
+        "SK": "##### Ignorované duplikáty vstupu",
+        "EN": "##### Ignored Input Duplicates"
+    },
+    "ignored_count": {
+        "SK": "**Ignorovaných vstupov: {}**",
+        "EN": "**Ignored inputs: {}**"
+    },
+    "ignored_caption": {
+        "SK": "Tieto druhy majú kanonické meno, ktoré už bolo v rámci výpočtu zahrnuté. Boli preskočené, aby sa predišlo duplicitnému započítaniu.",
+        "EN": "These species have a canonical name that was already included in the calculation. They were skipped to avoid double counting."
+    },
+    "success_no_dups": {
+        "SK": "Neboli zadané žiadne duplikáty.",
+        "EN": "No duplicates were entered."
+    },
+    # Section 4: Export
+    "sec4_title": {
+        "SK": "4. Údaje z terénu a Export",
+        "EN": "4. Field Data and Export"
+    },
+    "form_field_info": {
+        "SK": "##### Informácie o terénnom zázname",
+        "EN": "##### Field Record Information"
+    },
+    "lbl_locality": {
+        "SK": "Lokalita",
+        "EN": "Locality"
+    },
+    "lbl_coords": {
+        "SK": "Súradnice",
+        "EN": "Coordinates"
+    },
+    "lbl_mapper": {
+        "SK": "Meno mapovateľa",
+        "EN": "Mapper Name"
+    },
+    "lbl_date": {
+        "SK": "Dátum zápisu",
+        "EN": "Date of Record"
+    },
+    "form_covers": {
+        "SK": "##### Pokryvnosť etáží (E\u2083-E\u2080)",
+        "EN": "##### Layer Coverage (E\u2083-E\u2080)"
+    },
+    "help_cover": {
+        "SK": "Pokryvnosť v %",
+        "EN": "Coverage in %"
+    },
+    "lbl_e3": {
+        "SK": "E\u2083 (Stromové poschodie)",
+        "EN": "E\u2083 (Tree Layer)"
+    },
+    "lbl_e2": {
+        "SK": "E\u2082 (Krovité poschodie)",
+        "EN": "E\u2082 (Shrub Layer)"
+    },
+    "lbl_e1": {
+        "SK": "E\u2081 (Bylinné poschodie)",
+        "EN": "E\u2081 (Herb Layer)"
+    },
+    "lbl_e0": {
+        "SK": "E\u2080 (Machové/Liš. poschodie)",
+        "EN": "E\u2080 (Moss/Lichen Layer)"
+    },
+    "btn_save_data": {
+        "SK": "Uložiť údaje (pred exportom)",
+        "EN": "Save Data (Before Export)"
+    },
+    "btn_download_xlsx": {
+        "SK": "⬇️ Export výsledkov (Excel XLSX)",
+        "EN": "⬇️ Export Results (Excel XLSX)"
+    },
+    "btn_download_txt": {
+        "SK": "⬇️ Export výsledkov (TXT formát)",
+        "EN": "⬇️ Export Results (TXT format)"
+    },
+    # Export Content (TXT/Excel)
+    "export_title": {
+        "SK": "--- EXPORT VÝSLEDKOV ANALÝZY BIOTOPU ---",
+        "EN": "--- HABITAT ANALYSIS RESULTS EXPORT ---"
+    },
+    "export_based_on": {
+        "SK": "podľa publikácie Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska...",
+        "EN": "based on publication Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia..."
+    },
+    "export_sec1": {
+        "SK": "SEKCIA 1: ÚDAJE Z TERÉNU",
+        "EN": "SECTION 1: FIELD DATA"
+    },
+    "export_covers_title": {
+        "SK": "Pokryvnosť etáží",
+        "EN": "Layer Coverage"
+    },
+    "export_sec2": {
+        "SK": "SEKCIA 2: VÝSLEDKY FQI ANALÝZY (TOP 3)",
+        "EN": "SECTION 2: FQI ANALYSIS RESULTS (TOP 3)"
+    },
+    "export_sec3": {
+        "SK": "SEKCIA 3: POUŽITÉ KANONICKÉ DRUHY",
+        "EN": "SECTION 3: USED CANONICAL SPECIES"
+    },
+    "export_count_canon": {
+        "SK": "Počet kanonických druhov: ",
+        "EN": "Number of canonical species: "
+    },
+    "export_sec4": {
+        "SK": "SEKCIA 4: MANUÁLNE PRIDANÉ DRUHY (Korekcia/Doplnenie)",
+        "EN": "SECTION 4: MANUALLY ADDED SPECIES (Correction/Addition)"
+    },
+    "export_desc_manual": {
+        "SK": "Druhy, ktoré boli manuálne pridané/korigované v kroku 1.2:",
+        "EN": "Species manually added/corrected in step 1.2:"
+    },
+    "export_sec5": {
+        "SK": "SEKCIA 5: NEZARADENÉ DRUHY",
+        "EN": "SECTION 5: UNCLASSIFIED SPECIES"
+    },
+    "export_desc_unknown": {
+        "SK": "Mená druhov z importovaného súboru, ktoré nebolo možné automaticky priradiť ku kanonickým druhom:",
+        "EN": "Species names from the imported file that could not be automatically assigned to canonical species:"
+    },
+    "export_end": {
+        "SK": "--- KONIEC EXPORTU ---",
+        "EN": "--- END OF EXPORT ---"
+    },
+    # Excel Sheets
+    "sheet_field_data": {
+        "SK": "Data z terénu",
+        "EN": "Field Data"
+    },
+    "sheet_fqi": {
+        "SK": "FQI Výsledky",
+        "EN": "FQI Results"
+    },
+    "sheet_canon": {
+        "SK": "Kanonické druhy",
+        "EN": "Canonical Species"
+    },
+    "sheet_unknown": {
+        "SK": "Stav Neznámych Druhov",
+        "EN": "Unknown Species Status"
+    },
+    "col_desc": { "SK": "Popis", "EN": "Description" },
+    "col_val": { "SK": "Hodnota", "EN": "Value" },
+    "col_canon_header": { "SK": "Kanonické druhy (použité v analýze)", "EN": "Canonical Species (Used in Analysis)" },
+    "col_status": { "SK": "Stav", "EN": "Status" },
+    "col_species": { "SK": "Druh", "EN": "Species" },
+    "status_manual": { "SK": "Manuálne pridané (zaradené do analýzy)", "EN": "Manually added (included in analysis)" },
+    "status_unclassified": { "SK": "Nezaradené (pôvodný neznámy/preklep)", "EN": "Unclassified (original unknown/typo)" }
+}
+
+# --- HELPER FUNCTIONS ---
 
 def inner_dict_factory():
-    """Používa sa ako factory pre vnorený defaultdict namiesto nespôsobnej lambda funkcie."""
     return defaultdict(int)
+
+def t(key):
+    """Vráti text na základe aktuálneho jazyka v session_state."""
+    lang = st.session_state.get('lang', 'SK')
+    return TRANSLATIONS.get(key, {}).get(lang, key)
 
 @st.cache_data
 def load_file_content(filename):
-    """Načíta obsah katalógu zo súboru, skúša bežné kódovania."""
     try:
         try:
             with open(filename, 'r', encoding='utf-8') as f:
@@ -26,17 +376,14 @@ def load_file_content(filename):
             with open(filename, 'r', encoding='Windows-1250') as f:
                 return f.read()
     except FileNotFoundError:
-        st.error(f"⚠️ CHYBA: Súbor s dátami '{filename}' sa nenašiel v priečinku aplikácie.")
-        st.caption("Uistite sa, že súbor má presne tento názov a je v rovnakom priečinku ako python skript.")
+        st.error(f"⚠️ {t('err_file_not_found')} '{filename}'")
         return None
     except Exception as e:
-        st.error(f"Chyba pri načítaní súboru: {e}")
+        st.error(f"Error loading file: {e}")
         return None
 
 @st.cache_data
 def parse_catalog_data(catalog_text):
-    """Spracuje text katalógu a extrahuje mapu synoným (Sekcia 1) a maticu podobnosti (Sekcia 4)."""
-    
     lines = catalog_text.split('\n')
     section_1_active = False
     section_4_active = False
@@ -46,7 +393,6 @@ def parse_catalog_data(catalog_text):
     group_names = {}
     current_canonical_name = None
     
-    # Regulárne výrazy 
     re_section_1_start = re.compile(r"SECTION 1:\s*Species aggregation", re.IGNORECASE)
     re_section_4_start = re.compile(r"SECTION 4:\s*Similarity", re.IGNORECASE) 
     re_section_end = re.compile(r"SECTION [23]:", re.IGNORECASE)
@@ -85,7 +431,6 @@ def parse_catalog_data(catalog_text):
             match_group_name = re_group_name_4.match(line_clean)
             if match_group_name:
                 group_id = match_group_name.group(1).strip()
-                # Ukladáme plný názov, ktorý obsahuje aj kód biotypu
                 group_name_full = match_group_name.group(2).split(" Count:")[0].strip()
                 group_names[group_id] = group_name_full
                 group_names_found += 1
@@ -117,7 +462,6 @@ def parse_catalog_data(catalog_text):
 
 @st.cache_data
 def calculate_total_frequency_per_group(similarity_matrix, group_names):
-    """Vypočíta súčet frekvencií pre VŠETKY kanonické druhy pre každý biotyp (Max Score)."""
     total_frequency = defaultdict(int)
     all_groups = set(group_names.keys())
 
@@ -131,39 +475,28 @@ def calculate_total_frequency_per_group(similarity_matrix, group_names):
 
 
 def get_canonical_name(species_name, synonym_map):
-    """Získa kanonické meno druhu, ak existuje, inak vráti pôvodné meno."""
     species_name = species_name.strip()
     return synonym_map.get(species_name, species_name)
 
 @st.cache_data
 def get_all_known_species(synonym_map, similarity_matrix):
-    """Získa zjednotený zoznam všetkých známych druhov a synoným."""
     canonical_species = set(similarity_matrix.keys())
     all_known = canonical_species.union(set(synonym_map.keys())).union(set(synonym_map.values()))
     return sorted(list(all_known))
 
-# NOVÁ FUNKCIA: Spracovanie nahraného súboru
 def process_uploaded_species_list(uploaded_file, all_known_species):
-    """
-    Načíta druhy z TXT súboru a rozdelí ich na známe a neznáme druhy.
-    Predpokladá, že každý riadok je jeden druh.
-    """
-    
     known_species = []
     unknown_species = []
     
-    # Skúšame rôzne kódovania (utf-8, Windows-1250)
     try:
         string_data = uploaded_file.getvalue().decode("utf-8")
     except UnicodeDecodeError:
         try:
             string_data = uploaded_file.getvalue().decode("windows-1250")
         except:
-            return None, None # Chyba kódovania
+            return None, None
             
-    # Spracovanie riadkov
     for line in string_data.split('\n'):
-        # Očistíme riadok (trim, odstránenie tabulátorov/viacnásobných medzier)
         species = re.sub(r'\s+', ' ', line).strip()
         
         if species:
@@ -172,31 +505,20 @@ def process_uploaded_species_list(uploaded_file, all_known_species):
             else:
                 unknown_species.append(species)
                 
-    # Odstránenie duplikátov
     known_species = sorted(list(set(known_species)))
     unknown_species = sorted(list(set(unknown_species)))
     
     return known_species, unknown_species
 
 
-# --- ANALYTICKÁ FUNKCIA S FQI VÝPOČTOM ---
-
-@st.cache_data(show_spinner="Prebieha výpočet Frekvenčného Indexu (FQI)...")
+@st.cache_data(show_spinner=False)
 def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix, total_frequency_per_group):
-    """
-    Vyhodnotí podobnosť k biotopom (skupinám).
-    FQI = (Kumulatívne skóre zadaných druhov / Celkové možné skóre skupiny) * 100
-    Tiež sleduje, ktoré vstupy boli preskočené (kanonický duplikát).
-    """
-    
     cumulative_scores = defaultdict(int)
     valid_groups = set(group_names.keys())
-    # OPRAVA: Premenná iniciovaná ako 'processed_canonical_species'
     processed_canonical_species = set() 
     name_conversion_map = {} 
     ignored_inputs = [] 
     
-    # 1. KUMULATÍVNE SČÍTANIE A KONVERZIA
     for user_species in species_list:
         user_species = user_species.strip()
         canonical_name = get_canonical_name(user_species, synonym_map)
@@ -213,15 +535,12 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
                     if group_id in valid_groups:
                         cumulative_scores[group_id] += count
             else:
-                # Kanonický druh bol už spracovaný, tento vstup ignorujeme
                 ignored_inputs.append(user_species)
                 
 
     if not cumulative_scores:
-        # Používame processed_canonical_species
         return None, processed_canonical_species, name_conversion_map, ignored_inputs 
 
-    # 2. VÝPOČET FQI (Percentuálna normalizácia)
     fqi_scores = {}
     
     for group_id, cumulative_score in cumulative_scores.items():
@@ -233,193 +552,163 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
         else:
             fqi_scores[group_id] = 0.0
 
-    # 3. ZORADENIE A VÝBER TOP 3
     sorted_scores = sorted(fqi_scores.items(), key=lambda item: item[1], reverse=True)
     top_matches_data = []
     
-    # Regex pre robustnú extrakciu kódu (prvý non-whitespace token) a zvyšku názvu
     re_biotope_code_extractor = re.compile(r'^(\S+)\s+(.*)', re.IGNORECASE)
 
     for rank, (group_id, score) in enumerate(sorted_scores[:3]):
-        biotope_full_name = group_names.get(group_id, f"Neznámy Biotop ({group_id})")
+        biotope_full_name = group_names.get(group_id, f"Unknown ({group_id})")
         
-        # Pôvodný group_id (napr. Group42) ako fallback
         biotope_code = group_id 
         biotope_name = biotope_full_name
 
         match_code = re_biotope_code_extractor.match(biotope_full_name)
         
         if match_code:
-            # Ak regex nájde zhodu
             biotope_code = match_code.group(1).strip() 
             biotope_name = match_code.group(2).strip()
             
-            # Odstránenie voliteľnej pomlčky/medzier na začiatku názvu, ak tam zostala
             if biotope_name.startswith('-'):
                  biotope_name = biotope_name[1:].strip()
 
         
         top_matches_data.append({
-            'Poradie': rank + 1,
-            'KÓD Biotopu': biotope_code, # Zobraziť skratku LES05.1a, TRB01a atď.
-            'Názov Biotopu': biotope_name, # Zobraziť plný názov
-            'FQI (% Zhody)': f"{score:.2f} %", 
+            'rank': rank + 1, # Internal key, replaced for display
+            'code': biotope_code,
+            'name': biotope_name,
+            'fqi': f"{score:.2f} %", 
         })
 
     return top_matches_data, processed_canonical_species, name_conversion_map, ignored_inputs
 
-# --- EXPORTNÁ FUNKCIA PRE TXT ---
+# --- EXPORT FUNCTIONS (LOCALIZED) ---
 
-def generate_export_data(fqi_results_df, canonical_species_list, manual_data):
-    """
-    Generuje ucelený textový reťazec pre export obsahujúci hlavičku, FQI výsledky a zoznam druhov.
-    """
+def generate_export_data(fqi_results_df, canonical_species_list, manual_data, lang='SK'):
+    """Generates text export based on current language."""
     
-    # Dolné indexy pre etáže
     E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
     
-    # Prevod DataFrame na textovú tabuľku (CSV s tabulátorom pre čitateľnosť)
+    # Helper to get text for this specific function scope
+    def lt(key): 
+        return TRANSLATIONS.get(key, {}).get(lang, key)
+
+    # Convert DF to string
     fqi_table = fqi_results_df.reset_index(drop=True).to_csv(sep='\t', index=False)
     
-    output = "--- EXPORT VÝSLEDKOV ANALÝZY BIOTOPU ---\n"
-    output += "podľa publikácie Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie.\n\n"
+    output = f"{lt('export_title')}\n"
+    output += f"{lt('export_based_on')}\n\n"
 
-    # 1. HLAVIČKA PRE MANUÁLNY ZÁPIS
-    output += "SEKCIA 1: ÚDAJE Z TERÉNU (VYPLNENÉ V APLIKÁCII)\n"
+    # 1. Header
+    output += f"{lt('export_sec1')}\n"
     output += "--------------------------------------------------\n"
-    output += f"Lokalita:              {manual_data['lokalita']}\n"
-    output += f"Súradnice:             {manual_data['suradnica']}\n"
-    output += f"Meno mapovateľa:       {manual_data['mapovatel']}\n"
-    output += f"Dátum:                 {manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']}\n"
-    output += f"Pokryvnosť etáží (E{E3}: stromové, E{E2}: krovité, E{E1}: bylinné, E{E0}: machové/lišajníkové):\n"
+    output += f"{lt('lbl_locality')}:              {manual_data['lokalita']}\n"
+    output += f"{lt('lbl_coords')}:             {manual_data['suradnica']}\n"
+    output += f"{lt('lbl_mapper')}:       {manual_data['mapovatel']}\n"
+    output += f"{lt('lbl_date')}:                 {manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']}\n"
+    output += f"{lt('export_covers_title')} (E{E3}, E{E2}, E{E1}, E{E0}):\n"
     output += f"  E{E3}:                  {manual_data['pokryvnost_E3']}\n"
     output += f"  E{E2}:                  {manual_data['pokryvnost_E2']}\n"
     output += f"  E{E1}:                  {manual_data['pokryvnost_E1']}\n"
     output += f"  E{E0}:                  {manual_data['pokryvnost_E0']}\n\n"
     
-    # 2. VÝSLEDKY FQI ANALÝZY
-    output += "SEKCIA 2: VÝSLEDKY FQI ANALÝZY (TOP 3)\n"
+    # 2. Results
+    output += f"{lt('export_sec2')}\n"
     output += "--------------------------------------------------\n"
     output += fqi_table
     output += "\n"
 
-    # 3. KANONICKÉ DRUHY
-    output += "SEKCIA 3: POUŽITÉ KANONICKÉ DRUHY\n"
+    # 3. Canonical Species
+    output += f"{lt('export_sec3')}\n"
     output += "--------------------------------------------------\n"
-    output += "Počet kanonických druhov: " + str(len(canonical_species_list)) + "\n"
+    output += f"{lt('export_count_canon')}" + str(len(canonical_species_list)) + "\n"
     output += "\n".join(sorted(canonical_species_list))
     
-    # NOVÉ ZMENY PRE EXPORT NEZNÁMYCH DRUHOV
     remaining_unknown_species = manual_data.get('remaining_unknown_species')
-    # Zabezpečíme, že zoznam je k dispozícii
     manual_selections_for_analysis = manual_data.get('manual_selections_for_analysis', []) 
     
     if manual_selections_for_analysis:
-        # Sekcia 4: MANUÁLNE PRIDANÉ DRUHY
-        output += "\n\nSEKCIA 4: MANUÁLNE PRIDANÉ DRUHY (Korekcia/Doplnenie)\n"
+        output += f"\n\n{lt('export_sec4')}\n"
         output += "--------------------------------------------------\n"
-        output += "Druhy, ktoré boli manuálne pridané/korigované v kroku 1.2:\n"
+        output += f"{lt('export_desc_manual')}\n"
         output += "\n".join(manual_selections_for_analysis)
 
     if remaining_unknown_species:
-        # Sekcia 5: NEZARADENÉ DRUHY (s upraveným textom)
-        output += "\n\nSEKCIA 5: NEZARADENÉ DRUHY\n"
+        output += f"\n\n{lt('export_sec5')}\n"
         output += "--------------------------------------------------\n"
-        output += "Mená druhov z importovaného súboru, ktoré nebolo možné automaticky priradiť ku kanonickým druhom:\n" 
+        output += f"{lt('export_desc_unknown')}\n"
         output += "\n".join(remaining_unknown_species)
-    # KONIEC NOVÝCH ZMIEN
     
-    output += "\n\n--- KONIEC EXPORTU ---\n"
+    output += f"\n\n{lt('export_end')}\n"
     
     return output
 
-# --- EXPORTNÁ FUNKCIA PRE XLSX ---
-
-def generate_excel_data(fqi_results_df, canonical_species_list, manual_data):
-    """Generuje Excel súbor (.xlsx) s tromi listami dát."""
+def generate_excel_data(fqi_results_df, canonical_species_list, manual_data, lang='SK'):
+    """Generates Excel export based on current language."""
     
-    # Dolné indexy pre etáže
-    E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
+    def lt(key): 
+        return TRANSLATIONS.get(key, {}).get(lang, key)
     
-    # 1. PRIPRAVA DAT PRE HLAVICKU (ako DataFrame)
     header_data = [
         ("--- ZÁKLADNÉ ÚDAJE ---", ""),
-        ("Lokalita", manual_data['lokalita']),
-        ("Súradnice", manual_data['suradnica']),
-        ("Meno mapovateľa", manual_data['mapovatel']),
-        ("Dátum", manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']),
+        (lt('lbl_locality'), manual_data['lokalita']),
+        (lt('lbl_coords'), manual_data['suradnica']),
+        (lt('lbl_mapper'), manual_data['mapovatel']),
+        (lt('lbl_date'), manual_data['datum'].strftime('%Y-%m-%d') if isinstance(manual_data['datum'], date) else manual_data['datum']),
         ("--- POKRYVNOSŤ ETÁŽÍ ---", ""),
-        (f"E{E3} (Stromové poschodie)", manual_data['pokryvnost_E3']),
-        (f"E{E2} (Krovité poschodie)", manual_data['pokryvnost_E2']),
-        (f"E{E1} (Bylinné poschodie)", manual_data['pokryvnost_E1']),
-        (f"E{E0} (Machové/Liš. poschodie)", manual_data['pokryvnost_E0']),
+        (lt('lbl_e3'), manual_data['pokryvnost_E3']),
+        (lt('lbl_e2'), manual_data['pokryvnost_E2']),
+        (lt('lbl_e1'), manual_data['pokryvnost_E1']),
+        (lt('lbl_e0'), manual_data['pokryvnost_E0']),
     ]
-    df_header = pd.DataFrame(header_data, columns=['Popis', 'Hodnota'])
+    df_header = pd.DataFrame(header_data, columns=[lt('col_desc'), lt('col_val')])
     
-    # 2. PRIPRAVA DAT PRE DRUHY
-    df_species = pd.DataFrame(sorted(canonical_species_list), columns=['Kanonické druhy (použité v analýze)'])
+    df_species = pd.DataFrame(sorted(canonical_species_list), columns=[lt('col_canon_header')])
     
-    # NOVÉ ZMENY: Dáta o stave neznámych druhov
     remaining = manual_data.get('remaining_unknown_species', [])
     manual_added = manual_data.get('manual_selections_for_analysis', [])
     
     df_status = pd.DataFrame({
-        'Stav': 
-            ['Manuálne pridané (zaradené do analýzy)'] * len(manual_added) + 
-            ['Nezaradené (pôvodný neznámy/preklep)'] * len(remaining),
-        'Druh': manual_added + remaining
+        lt('col_status'): 
+            [lt('status_manual')] * len(manual_added) + 
+            [lt('status_unclassified')] * len(remaining),
+        lt('col_species'): manual_added + remaining
     })
     
-    # 3. ZAPIS DO BYTESIO BUFFERU
     output = io.BytesIO()
     
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_header.to_excel(writer, sheet_name=lt('sheet_field_data')[:30], index=False, startrow=0, startcol=0)
         
-        # A. Manuálne údaje (Hlavička)
-        df_header.to_excel(writer, sheet_name='Data z terénu', index=False, startrow=0, startcol=0)
-
-        # B. FQI Výsledky (už je DataFrame)
+        # FQI Results (already localized DF passed in)
         df_fqi_excel = fqi_results_df.copy()
-        df_fqi_excel.to_excel(writer, sheet_name='FQI Výsledky', index=False, startrow=0, startcol=0)
+        df_fqi_excel.to_excel(writer, sheet_name=lt('sheet_fqi')[:30], index=False, startrow=0, startcol=0)
 
-        # C. Kanonické druhy
-        df_species.to_excel(writer, sheet_name='Kanonické druhy', index=False, startrow=0, startcol=0)
+        df_species.to_excel(writer, sheet_name=lt('sheet_canon')[:30], index=False, startrow=0, startcol=0)
 
-        # D. NOVÉ: Stav neznámych druhov
         if not df_status.empty:
-            df_status.to_excel(writer, sheet_name='Stav Neznámych Druhov', index=False, startrow=0, startcol=0)
+            df_status.to_excel(writer, sheet_name=lt('sheet_unknown')[:30], index=False, startrow=0, startcol=0)
 
-        # Optimalizácia šírky stĺpcov pre lepšiu čitateľnosť
         for sheetname in writer.sheets:
             worksheet = writer.sheets[sheetname]
-            # Nastaví šírku pre prvé 4 stĺpce
             worksheet.set_column('A:D', 30)
             
-    # Resetovanie pozície bufferu a vrátenie obsahu
     output.seek(0)
     return output.read()
 
-# --- AKCIE PRE TLAČIDLÁ (Callbacks) ---
+# --- CALLBACKS ---
 
 def calculate_fqi_action():
-    """Uloží aktuálny výber a prepne režim na zobrazenie výsledkov."""
-    
-    # Spojenie ručne vybraných a známych nahraných druhov
     uploaded_known = st.session_state.get('uploaded_known_species', [])
     manual_selected = st.session_state.selected_species_multiselect
     
-    # Odstránenie duplikátov medzi nahratými a ručne vybranými
     combined_species = list(set(uploaded_known + manual_selected))
     
     st.session_state['calculated_species'] = combined_species
-    # NOVINKA: Explicitné uloženie manuálne vybraných druhov pre perzistentné zobrazenie v režime "results"
     st.session_state['manual_selections_for_display'] = manual_selected 
     st.session_state['app_mode'] = 'results'
     
-# Callback pre spracovanie nahraného súboru
 def handle_upload():
-    """Spracuje nahraný súbor a aktualizuje session state."""
-    
     uploaded_file = st.session_state.uploaded_file_key
     all_known_species = st.session_state.all_known_species_data
     
@@ -427,47 +716,72 @@ def handle_upload():
         known_species, unknown_species = process_uploaded_species_list(uploaded_file, all_known_species)
         
         if known_species is None:
-             st.error("Chyba: Nepodarilo sa prečítať súbor. Skúste iné kódovanie (napr. UTF-8 alebo Windows-1250).")
+             st.error("Error decoding file.")
              return
              
         st.session_state['uploaded_known_species'] = known_species
         st.session_state['uploaded_unknown_species'] = unknown_species
-        # Nechávame existujúci výber v multiselecte tak, ako je, ale upozorníme na novú situáciu
-        st.toast(f"Načítaných druhov: {len(known_species) + len(unknown_species)}. Známych: {len(known_species)}, Neznámych: {len(unknown_species)}.", icon='📄')
+        msg = t('toast_loaded').format(
+            len(known_species) + len(unknown_species),
+            len(known_species),
+            len(unknown_species)
+        )
+        st.toast(msg, icon='📄')
     else:
-        # Ak sa súbor odstráni
         st.session_state['uploaded_known_species'] = []
         st.session_state['uploaded_unknown_species'] = []
-        st.toast("Nahratý súbor bol odstránený. Zoznam druhov z neho bol vyčistený.", icon='🗑️')
-
+        st.toast(t('toast_removed'), icon='🗑️')
 
 def reset_selection_action():
-    """Prepne režim späť na výber. Čistí len hromadný upload, ručný výber ponecháva a obnovuje."""
     st.session_state['app_mode'] = 'selection'
-    # Vyčistenie stavu pre hromadný upload
     st.session_state['uploaded_known_species'] = []
     st.session_state['uploaded_unknown_species'] = []
     
-    # NOVÝ FIX: Explicitne obnovíme stav multiselectu z posledného uloženého manuálneho výberu.
-    # Tým sa zabezpečí, že multiselect sa pri opätovnom vykreslení neobnoví na prázdny zoznam.
     if 'manual_selections_for_display' in st.session_state:
         st.session_state['selected_species_multiselect'] = st.session_state['manual_selections_for_display']
 
+def set_lang(lang_code):
+    st.session_state['lang'] = lang_code
+    # No explicit rerun needed if used in callback or button leading to refresh, 
+    # but strictly speaking st.rerun() ensures immediate update.
+    # In Streamlit versions > 1.27 st.rerun() is preferred.
+    # We will let the button click handle the refresh naturally.
 
-# --- HLAVNÁ WEB APLIKÁCIA ---
+# --- MAIN APP ---
 
 def biotope_web_app():
     
-    st.set_page_config(page_title="Identifikátor Biotopov (FQI)", layout="wide")
+    st.set_page_config(page_title="Habitat Identifier / Identifikátor Biotopov", layout="wide")
     
-    st.title("🌿 Identifikátor Biotopov (FQI) na základe Expertného Systému")
-    st.caption(f"Dáta načítané zo súboru: **{CATALOG_FILENAME}**")
+    # Initialize Language
+    if 'lang' not in st.session_state:
+        st.session_state['lang'] = 'SK'
+
+    # --- LANGUAGE SWITCHER (TOP LEFT) ---
+    # Upravené: Používa HTML tag <img> v st.markdown namiesto st.image,
+    # čo zabraňuje fullscreen módu a umožňuje lepšie zarovnanie.
+    col_lang_1, col_lang_2, col_spacer = st.columns([0.08, 0.08, 0.84])
+    
+    with col_lang_1:
+        st.markdown(f'<div style="text-align: center;"><img src="{FLAG_URL_SK}" width="32" style="margin-bottom: 5px;"></div>', unsafe_allow_html=True)
+        if st.button("SK", key="lang_sk", help="Slovensky", use_container_width=True):
+            st.session_state['lang'] = 'SK'
+            st.rerun()
+            
+    with col_lang_2:
+        st.markdown(f'<div style="text-align: center;"><img src="{FLAG_URL_GB}" width="32" style="margin-bottom: 5px;"></div>', unsafe_allow_html=True)
+        if st.button("EN", key="lang_en", help="English", use_container_width=True):
+            st.session_state['lang'] = 'EN'
+            st.rerun()
+
+    # --- HEADER ---
+    st.title(t("app_title"))
+    st.caption(t("data_loaded_from").format(CATALOG_FILENAME))
 
     # Citácia
-    st.markdown("""
-        **Podľa publikácie:**
-        Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie. –
-        Štátna ochrana prírody SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4
+    st.markdown(f"""
+        {t("citation_header")}
+        {t("citation_text")}
     """)
     st.markdown("---")
 
@@ -476,33 +790,31 @@ def biotope_web_app():
     if 'app_mode' not in st.session_state:
         st.session_state['app_mode'] = 'selection'
         st.session_state['calculated_species'] = [] 
-        # PREMENNÉ PRE HROMADNÝ UPLOAD
         st.session_state['uploaded_known_species'] = []
         st.session_state['uploaded_unknown_species'] = []
-        st.session_state['selected_species_multiselect'] = [] # Stav pre multiselect - inicializované
-        st.session_state['manual_selections_for_display'] = [] # NOVINKA: Perzistentný stav manuálneho výberu
+        st.session_state['selected_species_multiselect'] = [] 
+        st.session_state['manual_selections_for_display'] = []
 
-    # Krok 0: Načítanie a parsovanie dát (Cache dáta)
+    # Krok 0: Načítanie a parsovanie dát
     catalog_text = load_file_content(CATALOG_FILENAME)
     if catalog_text is None:
         return
 
     synonym_map, group_names, similarity_matrix = parse_catalog_data(catalog_text)
     if synonym_map is None: 
-        st.error("Nepodarilo sa spracovať dáta z katalógu. Skontrolujte jeho formátovanie.")
+        st.error("Nepodarilo sa spracovať dáta z katalógu.")
         return
         
     all_species = get_all_known_species(synonym_map, similarity_matrix)
     total_frequency_per_group = calculate_total_frequency_per_group(similarity_matrix, group_names)
 
-    # Uloženie ALL_SPECIES do session (potrebné pre handle_upload)
     st.session_state.all_known_species_data = all_species 
 
     # Sidebar štatistiky
-    st.sidebar.header("Štatistiky Dát")
-    st.sidebar.write(f"Biotopov (skupín): **{len(group_names)}**")
-    st.sidebar.write(f"Spracovaných druhov v matici: **{len(similarity_matrix)}**")
-    st.sidebar.write(f"Celkový počet názvov/synoným na výber: **{len(all_species)}**")
+    st.sidebar.header(t("stats_header"))
+    st.sidebar.write(t("stats_biotopes").format(len(group_names)))
+    st.sidebar.write(t("stats_matrix").format(len(similarity_matrix)))
+    st.sidebar.write(t("stats_total").format(len(all_species)))
 
 
     # --- RIADENIE REŽIMU APLIKÁCIE ---
@@ -510,16 +822,13 @@ def biotope_web_app():
     if st.session_state['app_mode'] == 'selection':
         # Režim 1: VÝBER DRUHOV
 
-        st.header("1. Zadanie Druhov")
+        st.header(t("sec1_title"))
         
-        # NOVÁ FUNKCIONALITA: HROMADNÝ UPLOAD
-        st.subheader("1.1. Hromadné zadanie (TXT súbor)")
-        # *** ZMENENÝ TEXT PODĽA POŽIADAVKY ***
-        st.info("Nahrajte textový súbor, ktorý bude mať na každom riadku len meno jedného druhu bez informácie o pokryvnosti. Aplikácia automaticky spracuje známe druhy a identifikuje neznáme.")
-        # ***********************************
+        st.subheader(t("sec1_1_subtitle"))
+        st.info(t("upload_info"))
         
         uploaded_file = st.file_uploader(
-            "Vyberte TXT súbor so zoznamom druhov", 
+            t("upload_label"), 
             type=['txt'], 
             on_change=handle_upload,
             key='uploaded_file_key'
@@ -529,44 +838,38 @@ def biotope_web_app():
         uploaded_unknown_species = st.session_state.get('uploaded_unknown_species', [])
 
         if uploaded_file and (uploaded_known_species or uploaded_unknown_species):
-            st.success(f"Načítaných známych druhov zo súboru: **{len(uploaded_known_species)}**")
+            st.success(t("upload_success").format(len(uploaded_known_species)))
             
-            # Zobrazenie neznámych druhov
             if uploaded_unknown_species:
-                st.warning(f"Neznáme druhy v súbore (na manuálnu korekciu): **{len(uploaded_unknown_species)}**")
-                st.caption("Tieto druhy nebudú zahrnuté do analýzy, kým ich nepriradíte k známemu druhu pomocou ručného výberu (možnosť 1.2).")
-                # Zmena: Automatické rozbalenie zoznamu
-                with st.expander("Zobraziť neznáme druhy", expanded=True): 
+                st.warning(t("upload_warning").format(len(uploaded_unknown_species)))
+                st.caption(t("upload_caption"))
+                with st.expander(t("expander_unknown"), expanded=True): 
                     st.code("\n".join(uploaded_unknown_species))
             
             st.markdown("---")
 
 
-        # NOVÁ/UPRAVENÁ FUNKCIONALITA: Ručný výber alebo úprava
-        st.subheader("1.2. Manuálny výber (doplnenie / úprava / korekcia)")
+        st.subheader(t("sec1_2_subtitle"))
 
-        # Používa uloženú hodnotu z session state, ktorá sa už nevymazáva v reset_selection_action
         current_species_list = st.multiselect(
-            "Vyberte druh zo zoznamu (začnite písať pre filtrovanie), alebo ním **korigujte neznáme druhy** zo súboru:",
+            t("multiselect_label"),
             options=all_species,
-            # FIX: Explicitne načítame predchádzajúci stav z multiselectu (pre istotu)
             default=st.session_state.get('selected_species_multiselect', []), 
             key="selected_species_multiselect" 
         )
         
-        # SÚHRN PRE ANALÝZU
         total_species_for_analysis = list(set(uploaded_known_species + current_species_list))
 
-        st.info(f"Celkový počet druhov pre FQI analýzu (známe zo súboru + ručne vybrané): **{len(total_species_for_analysis)}**")
+        st.info(t("total_analysis_info").format(len(total_species_for_analysis)))
         
         if total_species_for_analysis:
             st.button(
-                "🟢 Všetky druhy zadané, vypočítaj FQI", 
+                t("btn_calculate"), 
                 on_click=calculate_fqi_action, 
                 use_container_width=True
             )
         else:
-            st.button("Všetky druhy zadané, vypočítaj FQI", disabled=True, use_container_width=True)
+            st.button(t("btn_calculate_disabled"), disabled=True, use_container_width=True)
 
 
     elif st.session_state['app_mode'] == 'results':
@@ -574,145 +877,124 @@ def biotope_web_app():
 
         user_species_list = st.session_state['calculated_species']
         uploaded_unknown_species = st.session_state.get('uploaded_unknown_species', [])
-        # POUŽÍVAME NOVÚ, PERZISTENTNÚ HODNOTU (manuálne vybrané druhy v kroku 1.2)
         manual_selected_for_display = st.session_state.get('manual_selections_for_display', []) 
         uploaded_known_species = st.session_state.get('uploaded_known_species', []) 
         
-        # ----------------------------------------------------
-        # Zjednodušená LOGIKA PRE KONTROLU DRUHOV
-        # ----------------------------------------------------
-        
-        # Druhy, ktoré boli PÔVODNE neznáme zo súboru (tieto sú nezaradené)
         remaining_unknown_species = uploaded_unknown_species 
-        
-        # Druhy, ktoré boli MANUÁLNE pridané/korigované v kroku 1.2. Tieto boli ZARADENÉ.
         manual_selections_for_analysis = manual_selected_for_display
 
-        # KONTROLA PRE PODMIENENÉ ZOBRAZENIE
-        # Zobrazíme detaily, len ak bol vykonaný HROMADNÝ IMPORT (1.1).
-        # Toto bola úprava z predchádzajúceho kola, ktorá zostáva
         show_processing_details = (
             len(uploaded_known_species) > 0 or
             len(uploaded_unknown_species) > 0
         )
         
-        # ----------------------------------------------------
-
         if not user_species_list:
-            st.error("Chyba: Neboli nájdené žiadne druhy na analýzu. Prepnite späť na výber.")
-            st.button("⬅️ Zmeň druhovú skupinu", on_click=reset_selection_action)
+            st.error(t("err_no_species"))
+            st.button(t("btn_back"), on_click=reset_selection_action)
             return
 
-        st.header("2. Výsledky Analýzy FQI")
+        st.header(t("sec2_title"))
         
-        st.button("⬅️ Zmeň druhovú skupinu", on_click=reset_selection_action)
+        st.button(t("btn_back"), on_click=reset_selection_action)
         
         st.markdown("---")
         
-        st.info(f"Analýza beží pre **{len(user_species_list)}** vybraných druhov.")
+        st.info(t("analysis_running").format(len(user_species_list)))
 
-        # Spustenie FQI analýzy (cache)
         top_matches_data, processed_species, name_conversion_map, ignored_inputs = analyze_similarity(
             user_species_list, synonym_map, group_names, similarity_matrix, total_frequency_per_group
         )
         
         if top_matches_data is None:
-            st.error("Nenašiel sa žiaden zadaný druh v matici podobnosti. Výpočet FQI nie je možný.")
+            st.error(t("err_no_matrix_match"))
             processed_species = set()
             name_conversion_map = {}
             ignored_inputs = [] 
             return
 
-        # Krok 3: Zobrazenie výsledkov
-        
         # 3.1. TOP 3 ZHODY
-        st.subheader("Biotopy s najvyššou podobnosťou (FQI)")
+        st.subheader(t("top3_title"))
         
-        df_results = pd.DataFrame(top_matches_data)
-        df_results_display = df_results.set_index('Poradie')
-        st.dataframe(df_results_display, use_container_width=True)
+        # Prepare localized dataframe for display
+        localized_results = []
+        for item in top_matches_data:
+            localized_results.append({
+                t("col_rank"): item['rank'],
+                t("col_code"): item['code'],
+                t("col_name"): item['name'],
+                t("col_fqi"): item['fqi']
+            })
 
-        st.caption("FQI (Frekvenčný Index) je **%**, ktoré vyjadruje podiel súčtu frekvencií vybraných druhov na celkovej možnej frekvencii všetkých kanonických druhov v danej skupine. Vyššie percento = Vyššia zhoda.")
+        df_results = pd.DataFrame(localized_results)
+        if not df_results.empty:
+            df_results_display = df_results.set_index(t("col_rank"))
+            st.dataframe(df_results_display, use_container_width=True)
+
+        st.caption(t("fqi_caption"))
 
         st.markdown("---")
         
         # --- SEKCIA 3: DETAIY SPRACOVANIA ---
-        st.subheader("3. Detaily Spracovania")
+        st.subheader(t("sec3_title"))
 
         col1, col2, col3 = st.columns(3) 
         
-        # PODMIENENÉ ZOBRAZENIE (Teraz ZBALENÉ A ZOBRAZUJE SA LEN PO HROMADNOM IMPORTE)
         if show_processing_details:
-            with st.expander("Kontrola spracovania druhov zo súboru a manuálnych korekcií", expanded=False):
+            with st.expander(t("expander_check"), expanded=False):
                 
-                # 1. Čo zostalo nezaradené (Pôvodné neznáme) - TERAZ AKO PRVÉ
                 if remaining_unknown_species:
-                    # Použitie upraveného textu
-                    st.warning(
-                        f"**{len(remaining_unknown_species)}** druhov nebolo v analýze zahrnutých. Mená druhov z importovaného súboru, ktoré nebolo možné automaticky priradiť ku kanonickým druhom."
-                    )
+                    st.warning(t("warn_not_included").format(len(remaining_unknown_species)))
                     st.code("\n".join(remaining_unknown_species))
                     
-                
                 elif len(uploaded_unknown_species) > 0 and not remaining_unknown_species:
-                    st.success("Všetky pôvodne neznáme druhy boli manuálne opravené/priradené.")
+                    st.success(t("success_unknown_fixed"))
                 elif len(uploaded_unknown_species) == 0 and len(uploaded_known_species) > 0:
-                    st.success("V nahratom súbore neboli žiadne neznáme druhy.")
+                    st.success(t("success_no_unknown"))
                     
-                
-                # 2. Čo bolo manuálne pridané (Potenciálne opravené) - TERAZ AKO DRUHÉ
                 if manual_selections_for_analysis:
-                    # Drobné oddelenie, len ak predchádzajúci blok nebol st.success/st.info
                     if remaining_unknown_species or len(uploaded_unknown_species) > 0:
-                        st.markdown("") # Malý vertikálny priestor
-                        
-                    st.success(f"**{len(manual_selections_for_analysis)}** druhov bolo **manuálne pridaných alebo korigovaných** v kroku 1.2 a boli zahrnuté do analýzy:")
+                        st.markdown("") 
+                    st.success(t("success_manual_added").format(len(manual_selections_for_analysis)))
                     st.code("\n".join(manual_selections_for_analysis))
                 else:
-                    # Zmenené z info na text, aby to vizuálne nezaťažovalo
                     if not remaining_unknown_species and not uploaded_known_species:
-                        st.info("Do analýzy neboli pridané žiadne druhy ručným výberom.")
+                        st.info(t("info_no_manual"))
                 
-
-        # Pôvodné detaily spracovania
         with col1:
-            st.markdown("##### Spracované druhy (kanonické)")
-            st.write(f"**Počet spracovaných kanonických druhov:** {len(processed_species)}")
+            st.markdown(t("processed_canon"))
+            st.write(t("processed_count").format(len(processed_species)))
             
-            with st.expander("Zobraziť použité kanonické mená"):
+            with st.expander(t("expander_canon")):
                 st.code("\n".join(sorted(list(processed_species))))
 
         with col2:
             conversions = {original: canonical for original, canonical in name_conversion_map.items() if original != canonical}
-            
-            st.markdown(f"##### Konverzie Synonym (zadaný → kanonický)")
+            st.markdown(t("synonym_conversions"))
             
             if conversions:
-                df_conversions = pd.DataFrame(list(conversions.items()), columns=['Zadané meno', 'Kanonické meno'])
+                df_conversions = pd.DataFrame(list(conversions.items()), columns=['Original', 'Canonical'])
                 st.dataframe(df_conversions, use_container_width=True, hide_index=True)
             else:
-                st.success("Neboli zadané žiadne synonymá, alebo bol zadaný už kanonický názov.")
+                st.success(t("no_synonyms"))
 
         with col3:
-            st.markdown(f"##### Ignorované duplikáty vstupu")
+            st.markdown(t("ignored_dups"))
             
             if ignored_inputs:
-                st.warning(f"**Ignorovaných vstupov: {len(ignored_inputs)}**")
-                st.caption("Tieto druhy majú kanonické meno, ktoré už bolo v rámci výpočtu zahrnuté. Boli preskočené, aby sa predišlo duplicitnému započítaniu.")
-                with st.expander("Zobraziť ignorované vstupy"):
+                st.warning(t("ignored_count").format(len(ignored_inputs)))
+                st.caption(t("ignored_caption"))
+                with st.expander("List"):
                     st.code("\n".join(ignored_inputs))
             else:
-                st.success("Neboli zadané žiadne duplikáty.")
+                st.success(t("success_no_dups"))
 
         st.markdown("---") 
 
         # --- SEKCIA 4: ÚDAJE Z TERÉNU A EXPORT ---
-        st.subheader("4. Údaje z terénu a Export")
+        st.subheader(t("sec4_title"))
         
-        # Použitie dolných indexov
-        E3, E2, E1, E0 = "\u2083", "\u2082", "\u2081", "\u2080"
+        # Etáže
         
-        # Uchovanie dát zadaných do formuláru pre export
         lokalita_default = st.session_state.get('export_lokalita', '')
         suradnica_default = st.session_state.get('export_suradnica', '')
         mapovatel_default = st.session_state.get('export_mapovatel', '')
@@ -722,33 +1004,26 @@ def biotope_web_app():
         pokryvnost_E1_default = st.session_state.get('export_E1', '0')
         pokryvnost_E0_default = st.session_state.get('export_E0', '0')
 
-        lokalita, suradnica, mapovatel, datum = lokalita_default, suradnica_default, mapovatel_default, datum_default
-        pokryvnost_E3, pokryvnost_E2, pokryvnost_E1, pokryvnost_E0 = pokryvnost_E3_default, pokryvnost_E2_default, pokryvnost_E1_default, pokryvnost_E0_default
-
         with st.form("field_data_form"):
-            
             col_a, col_b = st.columns([3, 1]) 
-            
             with col_a:
-                st.markdown("##### Informácie o terénnom zázname")
-                
-                lokalita = st.text_input("Lokalita", value=lokalita_default, key='export_lokalita')
-                suradnica = st.text_input("Súradnice", value=suradnica_default, key='export_suradnica')
-                mapovatel = st.text_input("Meno mapovateľa", value=mapovatel_default, key='export_mapovatel')
-                datum = st.date_input("Dátum zápisu", value=datum_default, key='export_datum')
+                st.markdown(t("form_field_info"))
+                lokalita = st.text_input(t("lbl_locality"), value=lokalita_default, key='export_lokalita')
+                suradnica = st.text_input(t("lbl_coords"), value=suradnica_default, key='export_suradnica')
+                mapovatel = st.text_input(t("lbl_mapper"), value=mapovatel_default, key='export_mapovatel')
+                datum = st.date_input(t("lbl_date"), value=datum_default, key='export_datum')
 
             with col_b:
-                st.markdown(f"##### Pokryvnosť etáží (E{E3}-E{E0})")
+                st.markdown(t("form_covers"))
+                help_text_etaze = t("help_cover")
+                # Opravené použitie popiskov bez duplicity
+                pokryvnost_E3 = st.text_input(t("lbl_e3"), value=pokryvnost_E3_default, key='export_E3', help=help_text_etaze)
+                pokryvnost_E2 = st.text_input(t("lbl_e2"), value=pokryvnost_E2_default, key='export_E2', help=help_text_etaze)
+                pokryvnost_E1 = st.text_input(t("lbl_e1"), value=pokryvnost_E1_default, key='export_E1', help=help_text_etaze)
+                pokryvnost_E0 = st.text_input(t("lbl_e0"), value=pokryvnost_E0_default, key='export_E0', help=help_text_etaze)
                 
-                help_text_etaze = "Pokryvnosť v %"
-                pokryvnost_E3 = st.text_input(f"E{E3} (Stromové poschodie)", value=pokryvnost_E3_default, key='export_E3', help=help_text_etaze)
-                pokryvnost_E2 = st.text_input(f"E{E2} (Krovité poschodie)", value=pokryvnost_E2_default, key='export_E2', help=help_text_etaze)
-                pokryvnost_E1 = st.text_input(f"E{E1} (Bylinné poschodie)", value=pokryvnost_E1_default, key='export_E1', help=help_text_etaze)
-                pokryvnost_E0 = st.text_input(f"E{E0} (Machové/Liš. poschodie)", value=pokryvnost_E0_default, key='export_E0', help=help_text_etaze)
-                
-            st.form_submit_button("Uložiť údaje (pred exportom)", type="primary")
+            st.form_submit_button(t("btn_save_data"), type="primary")
 
-        # Zostavenie manuálnych dát pre export
         manual_data = {
             'lokalita': lokalita,
             'suradnica': suradnica,
@@ -758,44 +1033,51 @@ def biotope_web_app():
             'pokryvnost_E2': pokryvnost_E2,
             'pokryvnost_E1': pokryvnost_E1,
             'pokryvnost_E0': pokryvnost_E0,
-            # PRIDANÉ PRE EXPORT - používa perzistentnú hodnotu pre konzistentnosť
             'manual_selections_for_analysis': manual_selections_for_analysis,
             'remaining_unknown_species': remaining_unknown_species,
         }
 
-        # Generovanie obsahu pre TXT export
+        # Need to regenerate df_results for export to ensure raw data structure if needed, 
+        # or just pass the display DF. Passing df_results (localized) is fine for export.
+        
         export_data_str = generate_export_data(
             df_results, 
             list(processed_species), 
-            manual_data
+            manual_data,
+            lang=st.session_state['lang']
         )
         
-        # Generovanie obsahu pre XLSX export
         excel_data_bytes = generate_excel_data(
             df_results, 
             list(processed_species), 
-            manual_data
+            manual_data,
+            lang=st.session_state['lang']
         )
         
-        # Tlačidlá pre stiahnutie v stĺpcoch (vyrovnané na jednom riadku)
-        file_name_prefix = lokalita[:10].replace(' ', '_').strip() if lokalita else "novy_zapis"
+        file_name_prefix = lokalita[:10].replace(' ', '_').strip() if lokalita else "new_record"
         
+        # Určenie prefixu názvu súboru (biotope / habitat) podľa jazyka
+        if st.session_state['lang'] == 'EN':
+            file_base = "habitat_analysis"
+        else:
+            file_base = "biotop_analyza"
+
         col_xlsx, col_txt = st.columns(2)
         
         with col_xlsx: 
             st.download_button(
-                label="⬇️ Export výsledkov (Excel XLSX)",
+                label=t("btn_download_xlsx"),
                 data=excel_data_bytes,
-                file_name=f"biotop_analyza_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.xlsx",
+                file_name=f"{file_base}_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
         with col_txt: 
             st.download_button(
-                label="⬇️ Export výsledkov (TXT formát)",
+                label=t("btn_download_txt"),
                 data=export_data_str,
-                file_name=f"biotop_analyza_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.txt",
+                file_name=f"{file_base}_{date.today().strftime('%Y%m%d')}_{file_name_prefix}.txt",
                 mime="text/plain",
                 use_container_width=True
             )
@@ -803,7 +1085,6 @@ def biotope_web_app():
         st.markdown("---") 
             
 
-    # Copyright Footer
     st.markdown("<footer><p style='text-align: right; color: gray; font-size: small;'>© Róbert Šuvada 2025</p></footer>", unsafe_allow_html=True)
 
 
