@@ -820,7 +820,7 @@ def set_lang(lang_code):
 
 def biotope_web_app():
     
-    st.set_page_config(page_title="Biotope Identifier / Identifikátor Biotopov", layout="wide")
+    st.set_page_config(page_title="Habitat Identifier / Identifikátor Biotopov", layout="wide")
     
     # Initialize Language
     if 'lang' not in st.session_state:
