@@ -82,7 +82,7 @@ TRANSLATIONS = {
     },
     "citation_text": {
         "SK": "Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie. – Štátna ochrana prírody SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4",
-        "EN": "Šuvada R. (ed.), 2023: Catalogue of Biotopes of Slovakia. Second, extended edition. – State Nature Conservancy of SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4"
+        "EN": "Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia. Second, extended edition. – State Nature Conservancy of SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4"
     },
     "stats_header": {
         "SK": "Štatistiky Dát",
@@ -349,7 +349,7 @@ TRANSLATIONS = {
     },
     "export_based_on": {
         "SK": "podľa publikácie Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska...",
-        "EN": "based on publication Šuvada R. (ed.), 2023: Catalogue of Biotopes of Slovakia..."
+        "EN": "based on publication Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia..."
     },
     "export_sec1": {
         "SK": "SEKCIA 1: ÚDAJE Z TERÉNU",
