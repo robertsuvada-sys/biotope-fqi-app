@@ -13,15 +13,16 @@ FLAG_URL_SK = "https://flagcdn.com/w40/sk.png"
 FLAG_URL_GB = "https://flagcdn.com/w40/gb.png"
 
 # --- KONFIGURÁCIA PDF KATALÓGU ---
-# Názov PDF súboru (musí sa zhodovať s názvom na GitHube)
+# Názov PDF súboru (musí byť nahraný v repozitári)
 PDF_FILENAME = "Suvada ed 2023 Habitat Catalogue of Slovakia 100dpi.pdf"
 
-# ⚠️ CESTU K REPOZITÁRU NA GITHUB (Raw verzia)
-# Formát musí byť: https://raw.githubusercontent.com/<UZIVATEL>/<REPOZITAR>/main/
+# ⚠️ DÔLEŽITÉ NASTAVENIE PRE OTVÁRANIE V PREHLIADAČI:
+# (Settings -> Pages -> Branch: main -> Save).
 
-GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/robertsuvada-sys/biotope-fqi-app/main/"
 
-# Mapovanie kódov biotopov na čísla strán v PDF
+PDF_BASE_URL = "https://robertsuvada-sys.github.io/biotope-fqi-app/" 
+
+# Mapovanie kódov biotopov na čísla strán v PDF (Načítané zo súboru strany.txt)
 BIOTOPE_PAGES = {
     "SLA01": 17, "SLA02": 19, "SLA03": 21, "SLA04": 23, "SLA05": 25, "SLA06": 27,
     "PIP01": 30, "PIP02": 32, "PIP03": 33, "PIP04": 35, "PIP05": 37,
@@ -634,7 +635,7 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
 
         # Získanie strany a vytvorenie URL
         page_num = BIOTOPE_PAGES.get(biotope_code, 1) # Default na stranu 1, ak sa nenájde
-        pdf_url = f"{GITHUB_RAW_BASE_URL}{PDF_FILENAME}#page={page_num}"
+        pdf_url = f"{PDF_BASE_URL}{PDF_FILENAME}#page={page_num}"
         
         top_matches_data.append({
             'rank': rank + 1,
