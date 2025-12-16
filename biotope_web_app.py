@@ -8,9 +8,60 @@ import io
 # NÁZOV PÔVODNÉHO KATALÓGOVÉHO SÚBORU
 CATALOG_FILENAME = "ES Katalog biotopov Suvada ed 2023 v1.05.txt"
 
-# ODKAZY NA VLAJKY (FlagCDN - verejný zdroj)
+# ODKAZY NA VLAJKY
 FLAG_URL_SK = "https://flagcdn.com/w40/sk.png"
 FLAG_URL_GB = "https://flagcdn.com/w40/gb.png"
+
+# --- KONFIGURÁCIA PDF KATALÓGU ---
+# Názov PDF súboru (musí sa zhodovať s názvom na GitHube)
+PDF_FILENAME = "Suvada ed 2023 Habitat Catalogue of Slovakia 100dpi.pdf"
+
+# ⚠️ CESTU K REPOZITÁRU NA GITHUB (Raw verzia)
+# Formát musí byť: https://raw.githubusercontent.com/<UZIVATEL>/<REPOZITAR>/main/
+
+GITHUB_RAW_BASE_URL = "https://raw.githubusercontent.com/robertsuvada-sys/biotope-fqi-app/main/"
+
+# Mapovanie kódov biotopov na čísla strán v PDF
+BIOTOPE_PAGES = {
+    "SLA01": 17, "SLA02": 19, "SLA03": 21, "SLA04": 23, "SLA05": 25, "SLA06": 27,
+    "PIP01": 30, "PIP02": 32, "PIP03": 33, "PIP04": 35, "PIP05": 37,
+    "VOD01": 40, "VOD01a": 40, "VOD01b": 40, "VOD01c": 41, "VOD02": 44, "VOD03": 46, "VOD04": 48,
+    "VOD05": 50, "VOD06": 52, "VOD07": 54, "VOD08": 56, "VOD09": 58, "VOD09a": 58, "VOD09b": 58,
+    "VOD10": 61, "VOD11": 63, "VOD12": 65, "VOD12a": 65, "VOD12b": 65, "VOD12c": 65, "VOD13": 68,
+    "VOD14": 70, "VOD15": 72, "VOD15a": 72, "VOD15b": 72,
+    "BRP01": 75, "BRP02": 76, "BRP03": 78, "BRP04": 80, "BRP05": 82, "BRP06": 84, "BRP07": 85,
+    "BRP08": 87, "BRP08a": 87, "BRP08b": 87, "BRP09": 89,
+    "KRO01": 92, "KRO02": 94, "KRO03": 96, "KRO04": 98, "KRO05": 99, "KRO06": 101,
+    "KRO07": 103, "KRO08": 105, "KRO09": 107, "KRO10": 109, "KRO11": 112, "KRO12": 114,
+    "ALP01": 117, "ALP02": 119, "ALP03": 122, "ALP04": 124, "ALP05": 128, "ALP06": 130,
+    "ALP07": 133, "ALP08": 136, "ALP09": 138, "ALP09a": 138, "ALP09b": 139, "ALP10": 143,
+    "ALP11": 145, "ALP12": 148, "ALP13": 150, "ALP14": 153,
+    "TRB01a": 157, "TRB01b": 157, "TRB02": 160, "TRB03": 162, "TRB04": 165, "TRB05": 167,
+    "TRB06": 169, "TRB07": 170, "TRB08": 172, "TRB09": 174, "TRB10": 176, "TRB11": 178, "TRB12": 180,
+    "LKP01": 183, "LKP02": 185, "LKP03": 187, "LKP03a": 187, "LKP03b": 187, "LKP04": 191,
+    "LKP05": 193, "LKP06": 195, "LKP07": 197, "LKP08": 199, "LKP09": 201, "LKP10": 203,
+    "LKP10a": 203, "LKP10b": 203,
+    "RAS01": 208, "RAS02": 210, "RAS03": 212, "RAS04": 214, "RAS05": 215, "RAS06": 218,
+    "RAS07": 220, "RAS08": 222, "RAS09": 225, "RAS10": 227,
+    "PRA01": 230, "PRA02": 232, "PRA03": 234, "PRA03a": 234, "PRA03b": 234,
+    "SKA01": 238, "SKA02": 240, "SKA03": 241, "SKA04": 243, "SKA05": 244, "SKA06": 246,
+    "SKA07": 247, "SKA08": 249, "SKA09": 250,
+    "LES01.1": 253, "LES01.2": 255, "LES01.3": 257, "LES01.4": 259,
+    "LES02.1": 261, "LES02.1a": 261, "LES02.1b": 261, "LES02.2": 265, "LES02.3": 266,
+    "LES03.1": 268, "LES03.2": 270, "LES03.3": 272, "LES03.4": 274, "LES03.5": 276,
+    "LES03.6": 278, "LES03.7": 280, "LES03.8": 282, "LES03.9": 284,
+    "LES04.1": 286, "LES04.2": 288,
+    "LES05.1": 290, "LES05.1a": 290, "LES05.1b": 290, "LES05.2": 293, "LES05.2a": 293, "LES05.2b": 293,
+    "LES05.3": 295, "LES05.4": 297, "LES05.4a": 297, "LES05.4b": 297, "LES05.5": 300,
+    "LES06.1": 302, "LES06.1a": 302, "LES06.1b": 302, "LES06.2": 306, "LES06.3": 308,
+    "LES07.1": 310, "LES07.2": 312, "LES07.3": 315, "LES07.4": 317,
+    "LES08.1": 319, "LES08.2": 321, "LES08.3": 323, "LES08.4": 324,
+    "LES09.1": 326, "LES09.2": 328, "LES09.3": 330, "LES09.4": 332, "LES09.5": 334,
+    "LES10": 337, "LES11": 339,
+    "XX01": 342, "XX02": 344, "XX03": 345, "XX03a": 345, "XX03b": 346, "XX03c": 346,
+    "XX04": 349, "XX04a": 349, "XX04b": 349, "XX04c": 349, "XX04d": 350, "XX04e": 350, "XX04f": 351,
+    "XX05": 354, "XX06": 356, "XX07": 357, "XX08": 359
+}
 
 # --- TRANSLATION DICTIONARY ---
 
@@ -30,7 +81,7 @@ TRANSLATIONS = {
     },
     "citation_text": {
         "SK": "Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska. Druhé, rozšírené vydanie. – Štátna ochrana prírody SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4",
-        "EN": "Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia. Second, extended edition. – State Nature Conservancy of SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4"
+        "EN": "Šuvada R. (ed.), 2023: Catalogue of Biotopes of Slovakia. Second, extended edition. – State Nature Conservancy of SR, Banská Bystrica, 511 p. ISBN 978-80-8184-106-4"
     },
     "stats_header": {
         "SK": "Štatistiky Dát",
@@ -155,6 +206,14 @@ TRANSLATIONS = {
         "SK": "FQI (% Zhody)",
         "EN": "FQI (% Match)"
     },
+    "col_pdf": {
+        "SK": "Katalóg (PDF)",
+        "EN": "Catalogue (PDF)"
+    },
+    "open_pdf": {
+        "SK": "🔗 Otvoriť",
+        "EN": "🔗 Open"
+    },
     # Section 3: Details
     "sec3_title": {
         "SK": "3. Detaily Spracovania",
@@ -253,6 +312,7 @@ TRANSLATIONS = {
         "SK": "Pokryvnosť v %",
         "EN": "Coverage in %"
     },
+    # --- OPRAVENÉ KĽÚČE PRE ETÁŽE (Bez duplicity E3 v kóde) ---
     "lbl_e3": {
         "SK": "E\u2083 (Stromové poschodie)",
         "EN": "E\u2083 (Tree Layer)"
@@ -288,7 +348,7 @@ TRANSLATIONS = {
     },
     "export_based_on": {
         "SK": "podľa publikácie Šuvada R. (ed.), 2023: Katalóg biotopov Slovenska...",
-        "EN": "based on publication Šuvada R. (ed.), 2023: Habitat Catalogue of Slovakia..."
+        "EN": "based on publication Šuvada R. (ed.), 2023: Catalogue of Biotopes of Slovakia..."
     },
     "export_sec1": {
         "SK": "SEKCIA 1: ÚDAJE Z TERÉNU",
@@ -572,12 +632,16 @@ def analyze_similarity(species_list, synonym_map, group_names, similarity_matrix
             if biotope_name.startswith('-'):
                  biotope_name = biotope_name[1:].strip()
 
+        # Získanie strany a vytvorenie URL
+        page_num = BIOTOPE_PAGES.get(biotope_code, 1) # Default na stranu 1, ak sa nenájde
+        pdf_url = f"{GITHUB_RAW_BASE_URL}{PDF_FILENAME}#page={page_num}"
         
         top_matches_data.append({
-            'rank': rank + 1, # Internal key, replaced for display
+            'rank': rank + 1,
             'code': biotope_code,
             'name': biotope_name,
-            'fqi': f"{score:.2f} %", 
+            'fqi': f"{score:.2f} %",
+            'pdf_url': pdf_url
         })
 
     return top_matches_data, processed_canonical_species, name_conversion_map, ignored_inputs
@@ -594,7 +658,10 @@ def generate_export_data(fqi_results_df, canonical_species_list, manual_data, la
         return TRANSLATIONS.get(key, {}).get(lang, key)
 
     # Convert DF to string
-    fqi_table = fqi_results_df.reset_index(drop=True).to_csv(sep='\t', index=False)
+    # We remove the URL column for text export to keep it clean, or keep it if desired. 
+    # For now, let's keep only basic columns.
+    export_df = fqi_results_df[[t("col_rank"), t("col_code"), t("col_name"), t("col_fqi")]]
+    fqi_table = export_df.reset_index(drop=True).to_csv(sep='\t', index=False)
     
     output = f"{lt('export_title')}\n"
     output += f"{lt('export_based_on')}\n\n"
@@ -680,8 +747,9 @@ def generate_excel_data(fqi_results_df, canonical_species_list, manual_data, lan
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df_header.to_excel(writer, sheet_name=lt('sheet_field_data')[:30], index=False, startrow=0, startcol=0)
         
-        # FQI Results (already localized DF passed in)
-        df_fqi_excel = fqi_results_df.copy()
+        # FQI Results - remove URL column for Excel export clean look, or keep it.
+        # Removing for clean data export.
+        df_fqi_excel = fqi_results_df[[t("col_rank"), t("col_code"), t("col_name"), t("col_fqi")]].copy()
         df_fqi_excel.to_excel(writer, sheet_name=lt('sheet_fqi')[:30], index=False, startrow=0, startcol=0)
 
         df_species.to_excel(writer, sheet_name=lt('sheet_canon')[:30], index=False, startrow=0, startcol=0)
@@ -751,15 +819,13 @@ def set_lang(lang_code):
 
 def biotope_web_app():
     
-    st.set_page_config(page_title="Habitat Identifier / Identifikátor Biotopov", layout="wide")
+    st.set_page_config(page_title="Biotope Identifier / Identifikátor Biotopov", layout="wide")
     
     # Initialize Language
     if 'lang' not in st.session_state:
         st.session_state['lang'] = 'SK'
 
-    # --- LANGUAGE SWITCHER (TOP LEFT) ---
-    # Upravené: Používa HTML tag <img> v st.markdown namiesto st.image,
-    # čo zabraňuje fullscreen módu a umožňuje lepšie zarovnanie.
+    # --- LANGUAGE SWITCHER (TOP LEFT - FLAGS FROM URL) ---
     col_lang_1, col_lang_2, col_spacer = st.columns([0.08, 0.08, 0.84])
     
     with col_lang_1:
@@ -922,13 +988,32 @@ def biotope_web_app():
                 t("col_rank"): item['rank'],
                 t("col_code"): item['code'],
                 t("col_name"): item['name'],
-                t("col_fqi"): item['fqi']
+                t("col_fqi"): item['fqi'],
+                t("col_pdf"): item['pdf_url'] # URL for LinkColumn
             })
 
         df_results = pd.DataFrame(localized_results)
+        
         if not df_results.empty:
+            # Nastavenie konfigurácie pre stĺpec s odkazom
+            column_config = {
+                t("col_pdf"): st.column_config.LinkColumn(
+                    t("col_pdf"),
+                    display_text=t("open_pdf"), # Zobrazí text "🔗 Otvoriť" namiesto URL
+                    width="small"
+                ),
+                t("col_rank"): st.column_config.NumberColumn(
+                    t("col_rank"),
+                    format="%d"
+                )
+            }
+            
             df_results_display = df_results.set_index(t("col_rank"))
-            st.dataframe(df_results_display, use_container_width=True)
+            st.dataframe(
+                df_results_display, 
+                use_container_width=True,
+                column_config=column_config
+            )
 
         st.caption(t("fqi_caption"))
 
